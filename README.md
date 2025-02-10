@@ -1,118 +1,117 @@
 # Fixed Execution Order framework (FEO)
 
-TODO
-
-# C++ & Rust Bazel Template Repository
-
-This repository serves as a **template** for setting up **C++ and Rust projects** using **Bazel**.
-It provides a **standardized project structure**, ensuring best practices for:
-
-- **Build configuration** with Bazel.
-- **Testing** (unit and integration tests).
-- **Documentation** setup.
-- **CI/CD workflows**.
-- **Development environment** configuration.
-
----
-
-## 📂 Project Structure
-
-| File/Folder                         | Description                                       |
-| ----------------------------------- | ------------------------------------------------- |
-| `README.md`                         | Short description & build instructions            |
-| `src/`                              | Source files for the module                       |
-| `tests/`                            | Unit tests (UT) and integration tests (IT)        |
-| `examples/`                         | Example files used for guidance                   |
-| `docs/`                             | Documentation (Doxygen for C++ / mdBook for Rust) |
-| `.github/workflows/`                | CI/CD pipelines                                   |
-| `.vscode/`                          | Recommended VS Code settings                      |
-| `.bazelrc`, `MODULE.bazel`, `BUILD` | Bazel configuration & settings                    |
-| `project_config.bzl`                | Project-specific metadata for Bazel macros        |
-| `LICENSE.md`                        | Licensing information                             |
-| `CONTRIBUTION.md`                   | Contribution guidelines                           |
-
----
-
-## 🚀 Getting Started
-
-### 1️⃣ Clone the Repository
+## Cloning the Repository
 
 ```sh
-git clone https://github.com/eclipse-score/YOUR_PROJECT.git
-cd YOUR_PROJECT
+git clone https://github.com/eclipse-score/feo.git
+cd feo
 ```
 
-### 2️⃣ Build the Examples of module
 
-> DISCLAIMER: Depending what module implements, it's possible that different
-> configuration flags needs to be set on command line.
+## Rust setup
 
-To build all targets of the module the following command can be used:
+You can build the Rust code both with `bazel` and with `cargo`.
+The CI will run both builds and ensure neither one is broken.
+
+### Bazel specific commands
+
+Lint Rust code (clippy)
 
 ```sh
-bazel build //src/...
+bazel build --config=lint-rust //...
 ```
 
-This command will instruct Bazel to build all targets that are under Bazel
-package `src/`. The ideal solution is to provide single target that builds
-artifacts, for example:
+## Bazel quick-start
+
+The recommended way to run `bazel` is with [`bazelisk`][bazelisk].
+On linux, this means downloading the binary from the releases page
+and symlinking it to `bazel` somewhere on the `PATH`.
+
+### Bazel examples
+
+Build the whole workspace
 
 ```sh
-bazel build //src/<module_name>:release_artifacts
+bazel build //...
 ```
 
-where `:release_artifacts` is filegroup target that collects all release
-artifacts of the module.
-
-> NOTE: This is just proposal, the final decision is on module maintainer how
-> the module code needs to be built.
-
-### 3️⃣ Run Tests
+Test the whole workspace
 
 ```sh
-bazel test //tests/...
+bazel test //...
 ```
 
----
+Query for targets
 
-## 🛠 Tools & Linters
-
-The template integrates **tools and linters** from **centralized repositories** to ensure consistency across projects.
-
-- **C++:** `clang-tidy`, `cppcheck`, `Google Test`
-- **Rust:** `clippy`, `rustfmt`, `Rust Unit Tests`
-- **CI/CD:** GitHub Actions for automated builds and tests
-
----
-
-## 📖 Documentation
-
-- A **centralized docs structure** is planned.
-
----
-
-## ⚙️ `project_config.bzl`
-
-This file defines project-specific metadata used by Bazel macros, such as `dash_license_checker`.
-
-### 📌 Purpose
-
-It provides structured configuration that helps determine behavior such as:
-
-- Source language type (used to determine license check file format)
-- Safety level or other compliance info (e.g. ASIL level)
-
-### 📄 Example Content
-
-```python
-PROJECT_CONFIG = {
-    "asil_level": "QM",  # or "ASIL-A", "ASIL-B", etc.
-    "source_code": ["cpp", "rust"]  # Languages used in the module
-}
+```sh
+bazel query //...
 ```
 
-### 🔧 Use Case
+Run example rust binary
 
-When used with macros like `dash_license_checker`, it allows dynamic selection of file types
- (e.g., `cargo`, `requirements`) based on the languages declared in `source_code`.
+```sh
+bazel run //examples/rust/greeter:greeter_rust
+```
+
+[bazelisk]: https://github.com/bazelbuild/bazelisk
+
+## Profiling
+
+### CPU
+
+[Samply](https://github.com/mstange/samply) is a convenient tool to profile `perf` based. The main goal is to simplify the usage of `perf` and provide a web interface to analyze the results without the need to perform manual steps.
+
+Get your copy of *samply*:
+
+```sh
+curl --proto '=https' --tlsv1.2 -LsSf https://github.com/mstange/samply/releases/download/samply-v0.12.0/samply-installer.sh | sh
+```
+
+Profile:
+
+```sh
+cargo build --example hello_tracing --profile profiling
+samply record target/profiling/examples/hello_tracing
+# ...
+# <ctrl-c>
+```
+Samply will spawn a webserver on [https://127.0.0.1:3000](https://127.0.0.1:3000) by default. Open and enjoy the results.
+The [Firefox Profiler](https://profiler.firefox.com) requires Firefox or Chrome (Safari is not supported).
+
+### Memory
+
+Easiest way to profile memory usage is to use
+[bytehound](https://github.com/koute/bytehound). It is a tool that can be used
+to profile memory usage of a binary or verify that a binary is allocation free.
+It supports Linux only at the moment.
+
+Install *bytehound* with the following commands:
+
+```sh
+wget https://github.com/koute/bytehound/releases/download/0.11.0/bytehound-x86_64-unknown-linux-gnu.tgz
+tar xzf bytehound-x86_64-unknown-linux-gnu.tgz bytehound libbytehound.so 
+mv bytehound libbytehound.so $HOME/.cargo/bin
+```
+
+Record something with bytehound:
+
+```sh
+LD_PRELOAD=$HOME/.cargo/bin/libbytehound.so target/debug/examples/hello_tracing
+# ...
+# <ctrl-c>
+```
+
+Done with recording.  Analyze the recording by
+
+```sh
+bytehound server memory-profiling_*.dat
+# [2025-01-16T10:15:18Z INFO  server_core] Trying to load "memory-profiling_hello_tracing_1737022463_1792106.dat"...
+# [2025-01-16T10:15:18Z INFO  cli_core::loader] Loaded data in 0s 099
+# [2025-01-16T10:15:18Z INFO  actix_server::builder] Starting 96 workers
+# [2025-01-16T10:15:18Z INFO  actix_server::builder] Starting server on 127.0.0.1:8080
+```
+
+Click on the [link](http://127.0.0.1:8080) in the output to open the browser and
+see the results. Setup ssh port forwarding if needed when working remote (`ssh -L 8080:localhost:8080 host`).
+
 
