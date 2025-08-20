@@ -48,3 +48,9 @@ use_format_targets()
 docs(
     source_dir = "docs",
 )
+
+exports_files([
+    ".clang-format",
+    "clippy.toml",
+    "MODULE.bazel",
+])
