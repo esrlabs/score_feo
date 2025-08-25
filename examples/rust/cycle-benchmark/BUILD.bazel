@@ -34,6 +34,7 @@ rust_library(
         "@cargo//:postcard",
         "@cargo//:serde",
         "@cargo//:serde_json",
+        "@cargo//:tracing",
     ],
 )
 

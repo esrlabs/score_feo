@@ -23,6 +23,7 @@ feo-time = { workspace = true }
 feo-tracing = { workspace = true }
 postcard = { workspace = true, features = ["experimental-derive"] }
 serde = { workspace = true, optional = true }
+tracing = { workspace = true }
 
 [build-dependencies]
 feo-cpp-build = { workspace = true }
