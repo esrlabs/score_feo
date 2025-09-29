@@ -25,7 +25,7 @@ use feo_com::iox2::{Iox2Input, Iox2Output};
 #[cfg(feature = "com_linux_shm")]
 use feo_com::linux_shm::{LinuxShmInput, LinuxShmOutput};
 use feo_log::debug;
-use feo_tracing::{instrument};
+use feo_tracing::instrument;
 use std::hash::RandomState;
 use std::thread;
 
