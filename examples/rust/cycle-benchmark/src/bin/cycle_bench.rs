@@ -51,15 +51,24 @@ fn run_as_primary(params: Params, app_config: ApplicationConfig) {
     match signalling {
         SignallingType::DirectMpsc => {
             let config = direct_mpsc::make_primary_config(params, app_config);
-            direct_mpsc::Primary::new(config).run().unwrap();
+            direct_mpsc::Primary::new(config)
+                .expect("failed to create mpsc primary")
+                .run()
+                .unwrap();
         }
         signalling @ SignallingType::DirectTcp | signalling @ SignallingType::DirectUnix => {
             let config = direct_sockets::make_primary_config(params, app_config, signalling);
-            direct_sockets::Primary::new(config).run().unwrap();
+            direct_sockets::Primary::new(config)
+                .expect("failed to create direct socket primary")
+                .run()
+                .unwrap();
         }
         signalling @ SignallingType::RelayedTcp | signalling @ SignallingType::RelayedUnix => {
             let config = relayed_sockets::make_primary_config(params, app_config, signalling);
-            relayed_sockets::Primary::new(config).run().unwrap();
+            relayed_sockets::Primary::new(config)
+                .expect("failed to create relayed socket primary")
+                .run()
+                .unwrap();
         }
     }
 }
@@ -233,6 +242,7 @@ mod direct_sockets {
             recorder_ids: app_config.recorders(),
             worker_assignments: app_config.worker_assignments().remove(&agent_id).unwrap(),
             timeout: Duration::from_secs(10),
+            connection_timeout: Duration::from_secs(10),
             endpoint: endpoint(&app_config, signalling),
         }
     }
@@ -314,6 +324,7 @@ mod relayed_sockets {
             recorder_ids: app_config.recorders(),
             worker_assignments: app_config.worker_assignments().remove(&agent_id).unwrap(),
             timeout: Duration::from_secs(10),
+            connection_timeout: Duration::from_secs(10),
             bind_address_senders: endpoints.0,
             bind_address_receivers: endpoints.1,
             id: agent_id,

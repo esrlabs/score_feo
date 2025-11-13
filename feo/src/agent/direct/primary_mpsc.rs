@@ -51,7 +51,7 @@ pub struct Primary {
 
 impl Primary {
     /// Create a new instance
-    pub fn new(config: PrimaryConfig) -> Self {
+    pub fn new(config: PrimaryConfig) -> Result<Self, Error> {
         let PrimaryConfig {
             cycle_time,
             activity_dependencies,
@@ -89,7 +89,7 @@ impl Primary {
             })
             .collect();
 
-        connector.connect_remotes().expect("failed to connect");
+        connector.connect_remotes()?;
 
         let scheduler = Scheduler::new(
             cycle_time,
@@ -99,10 +99,10 @@ impl Primary {
             recorder_ids,
         );
 
-        Self {
+        Ok(Self {
             scheduler,
             _worker_threads,
-        }
+        })
     }
 
     /// Run the agent
