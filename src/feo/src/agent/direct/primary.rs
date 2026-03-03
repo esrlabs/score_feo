@@ -32,6 +32,7 @@ use feo_time::Duration;
 use score_log::{error, info};
 use std::collections::HashMap;
 use std::thread::{self, JoinHandle};
+use crate::agent::register_sigterm_handler;
 
 /// Configuration of the primary agent
 pub struct PrimaryConfig {
@@ -134,12 +135,7 @@ impl Primary {
 
         // Create a shared flag to signal shutdown from an OS signal (e.g., Ctrl-C).
         let shutdown_requested = Arc::new(AtomicBool::new(false));
-        let shutdown_clone = shutdown_requested.clone();
-        ctrlc::set_handler(move || {
-            info!("Ctrl-C detected. Requesting graceful shutdown...");
-            shutdown_clone.store(true, core::sync::atomic::Ordering::Relaxed);
-        })
-        .expect("Error setting Ctrl-C handler");
+        register_sigterm_handler(shutdown_requested.clone());
 
         let scheduler = Scheduler::new(
             config.id,

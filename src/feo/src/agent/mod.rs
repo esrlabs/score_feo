@@ -19,6 +19,10 @@
 
 use core::net::SocketAddr;
 use std::path::PathBuf;
+use core::sync::atomic::Ordering;
+use core::sync::atomic::AtomicBool;
+use alloc::sync::Arc;
+use feo_log::info;
 
 pub mod com_init;
 pub mod direct;
@@ -29,4 +33,17 @@ pub mod relayed;
 pub enum NodeAddress {
     Tcp(SocketAddr),
     UnixSocket(PathBuf),
+}
+
+fn register_sigterm_handler(shutdown: Arc<AtomicBool>) {
+    ctrlc::set_handler(move || {
+        if shutdown.load(Ordering::Relaxed) {
+            info!("Terminate triggered, exiting...");
+            std::process::exit(1);
+        } else {
+            info!("Ctrl-C detected. Requesting graceful shutdown...");
+            shutdown.store(true, core::sync::atomic::Ordering::Relaxed);
+        }
+    })
+    .expect("Error setting Ctrl-C handler")
 }
