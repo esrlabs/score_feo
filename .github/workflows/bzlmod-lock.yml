@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-
 # *******************************************************************************
 # Copyright (c) 2025 Contributors to the Eclipse Foundation
 #
@@ -12,16 +10,19 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
-
-set -e
-
-SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-
-buildifier -r $SCRIPT_DIR
-bazelisk mod tidy
-bazelisk run --lockfile_mode=error //:format.fix
-bazelisk run --lockfile_mode=error //:format.check_Rust_with_rustfmt
-bazelisk run --lockfile_mode=error //:copyright.check
-bazelisk build --lockfile_mode=error --config=lint-rust //...
-bazelisk build --lockfile_mode=error --config=x86_64-linux //...
-bazelisk test --lockfile_mode=error --config=x86_64-linux //...
+name: Bzlmod Lockfile Check
+permissions:
+  contents: read
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+  merge_group:
+    types: [checks_requested]
+  push:
+    branches:
+      - main
+jobs:
+  bzlmod-lock:
+    uses: eclipse-score/cicd-workflows/.github/workflows/bzlmod-lock-check.yml@main
+    with:
+      working-directory: .
