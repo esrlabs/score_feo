@@ -18,6 +18,3 @@ ctrlc = { workspace = true, features = ["termination"] }
 [features]
 default = []
 loop_duration_meter = []
-# Note: Once we have a better abstraction in `feo-com`,
-# we will not need to activate a feature by default for `recording`.
-recording = ["dep:serde", "dep:postcard"]

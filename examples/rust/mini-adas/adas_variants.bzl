@@ -24,8 +24,7 @@ SIGNALLINGS = [
     "direct_unix",
     "relayed_tcp",
     "relayed_unix",
-    # Not yet merged
-    # "direct_mw_com",
+    "direct_mw_com",
 ]
 
 COMMON_DEPS = [

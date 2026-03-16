@@ -131,7 +131,6 @@ impl<Inter: IsChannel, Intra: IsChannel> ConnectScheduler for SchedulerConnector
 
     fn get_connected_agent_ids(&self) -> Vec<AgentId> {
         let mut agent_ids: BTreeSet<_> = self.worker_agent_map.values().copied().collect();
-        // In relayed mode, recorders are also agents we talk to.
         if let Some(relay) = self.ipc_send_relay.as_ref() {
             agent_ids.extend(relay.get_remote_agents());
         }
@@ -152,10 +151,6 @@ impl<Inter: IsChannel, Intra: IsChannel> ConnectScheduler for SchedulerConnector
 
     fn send_to_activity(&mut self, activity_id: ActivityId, signal: &Signal) -> Result<(), Error> {
         self.send_to_activity(activity_id, *signal)
-    }
-
-    fn send_to_recorder(&mut self, recorder_id: AgentId, signal: &Signal) -> Result<(), Error> {
-        self.send_to_agent(recorder_id, (*signal).into())
     }
 
     fn broadcast_terminate(&mut self, signal: &Signal) -> Result<(), Error> {

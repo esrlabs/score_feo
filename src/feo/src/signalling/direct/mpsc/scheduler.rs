@@ -145,8 +145,6 @@ impl ConnectScheduler for SchedulerConnector {
         Ok(())
     }
 
-    /// Send `signal` to the recorder with `recorder_id`
-    ///
     /// Mpsc-only signalling supports a single agent only.
     /// Therefore, nothing is to be done for synchronizing.
     /// This method is a no-op and always returns Ok.
@@ -166,11 +164,6 @@ impl ConnectScheduler for SchedulerConnector {
     /// Send `signal` to the activity with `activity_id`
     fn send_to_activity(&mut self, activity_id: ActivityId, signal: &Signal) -> Result<(), Error> {
         self.send(ChannelId::Activity(activity_id), *signal)
-    }
-
-    /// Send `signal` to the recorder with `recorder_id`
-    fn send_to_recorder(&mut self, _recorder_id: AgentId, _signal: &Signal) -> Result<(), Error> {
-        unimplemented!("Recording not supported with mpsc channels");
     }
 
     fn broadcast_terminate(&mut self, _signal: &Signal) -> Result<(), Error> {

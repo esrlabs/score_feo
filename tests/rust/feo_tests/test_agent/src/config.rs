@@ -11,6 +11,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // *******************************************************************************
 
+use com_api::LolaRuntimeImpl;
 use core::net::{IpAddr, Ipv4Addr, SocketAddr};
 use feo::ids::AgentId;
 use feo_com::interface::ComBackend;
@@ -28,7 +29,20 @@ pub const COM_BACKEND: ComBackend = ComBackend::Iox2;
 #[cfg(feature = "com_linux_shm")]
 pub const COM_BACKEND: ComBackend = ComBackend::LinuxShm;
 
-pub const TOPIC_COUNTER: &str = "feo/com/test/counter";
+pub const TOPIC_COUNTER: &str = "/feo/com/test/counter";
 
-/// Allow up to two recorder processes (that potentially need to subscribe to every topic)
-pub const MAX_ADDITIONAL_SUBSCRIBERS: usize = 2;
+pub fn mw_com_runtime() -> &'static LolaRuntimeImpl {
+    use com_api::Builder;
+    use com_api::RuntimeBuilder;
+    use com_api::{LolaRuntimeBuilderImpl, LolaRuntimeImpl};
+    use std::path::PathBuf;
+    use std::sync::LazyLock;
+    static RUNTIME: LazyLock<LolaRuntimeImpl> = LazyLock::new(|| {
+        let mut lola_runtime_builder = LolaRuntimeBuilderImpl::new();
+        lola_runtime_builder.load_config(&PathBuf::from(
+            "./tests/rust/feo_tests/test_agent/etc/mw_com_config.json",
+        ));
+        lola_runtime_builder.build().unwrap()
+    });
+    &RUNTIME
+}

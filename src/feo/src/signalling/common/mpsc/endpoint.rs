@@ -75,12 +75,12 @@ impl ProtocolReceiver {
                     error!("Received unexpected protocol signal {:?}", other);
                     continue;
                 },
-                None => return Err(Error::Timeout(timeout, "connecting sender")),
+                None => return Err(Error::Timeout(Some(timeout), "connecting sender")),
             };
             trace!("Receiver channel connected: {:?}", self.channel_id);
             return Ok(());
         }
-        Err(Error::Timeout(timeout, "connecting sender"))
+        Err(Error::Timeout(Some(timeout), "connecting sender"))
     }
 }
 
@@ -127,7 +127,7 @@ impl ProtocolMultiReceiver {
                     error!("Received unexpected protocol signal {:?}", other);
                     continue;
                 },
-                None => return Err(Error::Timeout(timeout, "connecting senders")),
+                None => return Err(Error::Timeout(Some(timeout), "connecting senders")),
             };
             if !self.channel_ids.contains(&channel_id) {
                 error!("Received connect signal from unexpected channel {:?}", channel_id);

@@ -20,4 +20,4 @@ serde_json = { workspace = true }
 [build-dependencies]
 
 [features]
-default = ["feo/loop_duration_meter", "feo/recording"]
+default = ["feo/loop_duration_meter"]

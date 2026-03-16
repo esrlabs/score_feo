@@ -35,16 +35,24 @@ For instance, Linux shared memory com backend with TCP scokets signalling implem
 
 ```sh
 # Use 400ms cycle time
-bazelisk run //examples/rust/mini-adas:adas_primary_com_linux_shm_direct_tcp -- 400
+bazelisk run //examples/rust/mini-adas:adas_primary_com_mw_direct_mw_com -- 400
 ```
 
 ```sh
-bazelisk run //examples/rust/mini-adas:adas_secondary_com_linux_shm_direct_tcp -- 1
+bazelisk run //examples/rust/mini-adas:adas_secondary_com_mw_direct_mw_com -- 1
 ```
 
 ```sh
-bazelisk run //examples/rust/mini-adas:adas_secondary_com_linux_shm_direct_tcp -- 2
+bazelisk run //examples/rust/mini-adas:adas_secondary_com_mw_direct_mw_com -- 2
 ```
+
+## Different signalling layer
+
+The easiest way to switch the signalling layer is by changing the crate_features in the `BUILD.bazel`,
+make sure to switch it for every target you're using. Then you can just use the commands from above.
+
+Note that for mpsc-only signalling, there can be only a primary process without
+any secondaries, because mpsc does not support inter-process signalling.
 
 ## Running tracer
 

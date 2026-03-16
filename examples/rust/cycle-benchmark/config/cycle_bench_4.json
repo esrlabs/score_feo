@@ -1,7 +1,6 @@
 {
   "signalling": "DirectMpsc",
   "primary_agent": 1000,
-  "recorders": [],
   "agent_assignments": {
     "1000": [500, 501, 502]
   },

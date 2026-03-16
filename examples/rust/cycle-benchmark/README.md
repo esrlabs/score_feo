@@ -18,5 +18,4 @@ not given.
 
 If the specified agent ID is equal to the primary ID defined in the config file, the above command will start the
 primary agent. If it is equal to one of the secondary agent IDs (i.e. an agent ID in the config that is not
-equal to the primary ID), it will start a secondary agent. Finally, if the agent ID matches one of the
-recorder IDs from the config file, a recorder will be started.
+equal to the primary ID), it will start a secondary agent.

@@ -29,7 +29,7 @@ use feo_com::linux_shm::LinuxShmOutput;
 
 #[cfg(feature = "com_mw")]
 macro_rules! output {
-    ($interface:ident, $topic:ident, $mapping_fn:expr) => {
+    ($interface:ident, $topic:expr, $mapping_fn:expr) => {
         Box::new(feo_com::mw_com::MwComOutput::new(feo_com::interface::DebugWrapper(
             ($mapping_fn)($crate::activities::output::create_producer::<$interface>($topic)),
         )))
@@ -38,7 +38,7 @@ macro_rules! output {
 
 #[cfg(not(feature = "com_mw"))]
 macro_rules! output {
-    ($interface:ident, $topic:ident, $mapping_fn:expr) => {
+    ($interface:ident, $topic:expr, $mapping_fn:expr) => {
         $crate::activities::output::activity_output($topic)
     };
 }

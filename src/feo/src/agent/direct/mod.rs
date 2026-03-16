@@ -18,6 +18,4 @@
 
 pub mod primary;
 pub mod primary_mpsc;
-#[cfg(feature = "recording")]
-pub mod recorder;
 pub mod secondary;

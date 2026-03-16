@@ -17,15 +17,11 @@ use crate::error::ActivityError;
 use crate::ids::{ActivityId, AgentId};
 use crate::timestamp::{SyncInfo, Timestamp};
 use core::fmt::Display;
-#[cfg(feature = "recording")]
-use postcard::experimental::max_size::MaxSize;
 use score_log::ScoreDebug;
-#[cfg(feature = "recording")]
-use serde::{Deserialize, Serialize};
 
 /// Signal types sent between threads or processes
-#[cfg_attr(feature = "recording", derive(Serialize, Deserialize, MaxSize))]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, ScoreDebug)]
+#[repr(C, u8)]
 pub enum Signal {
     // Signal sent from the primary agent to each secondary agent containing synchronization info
     StartupSync(SyncInfo),
@@ -45,15 +41,6 @@ pub enum Signal {
     // Signal sent from a worker when an activity's step or shutdown method fails.
     ActivityFailed((ActivityId, ActivityError)),
 
-    // Signal sent by the scheduler to the recorders whenever the taskchain starts
-    TaskChainStart(Timestamp),
-
-    // Signal sent by the scheduler to the recorders whenever the taskchain ends
-    TaskChainEnd(Timestamp),
-
-    // Signal sent to indicate that a recorder operation has finished
-    RecorderReady((AgentId, Timestamp)),
-
     // Signal sent by the scheduler to all workers to terminate the agent process
     Terminate(Timestamp),
 
@@ -70,9 +57,6 @@ impl Display for Signal {
             Signal::Step((id, t)) => write!(f, "Step({id}, {t:?})"),
             Signal::Ready((id, t)) => write!(f, "Ready({id}, {t:?})"),
             Signal::ActivityFailed((id, err)) => write!(f, "ActivityFailed({id}, {err:?})"),
-            Signal::TaskChainStart(t) => write!(f, "TaskChainStart({t:?})"),
-            Signal::TaskChainEnd(t) => write!(f, "TaskChainEnd({t:?})"),
-            Signal::RecorderReady((id, t)) => write!(f, "RecorderReady({id}, {t:?})"),
             Signal::Terminate(t) => write!(f, "Terminate({t:?})"),
             Signal::TerminateAck(id) => write!(f, "TerminateAck({id})"),
         }

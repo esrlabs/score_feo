@@ -11,6 +11,7 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
+use com_api::LolaRuntimeImpl;
 use cycle_benchmark::config::{ApplicationConfig, SignallingType};
 use feo::ids::AgentId;
 use feo_time::Duration;
@@ -38,10 +39,24 @@ fn main() {
         run_as_secondary(params, app_config);
     } else {
         eprintln!(
-            "ERROR: Agent or recorder id {} not defined in system configuration",
+            "ERROR: Agent id {} not defined in system configuration",
             params.agent_id
         );
     }
+}
+
+pub fn mw_com_runtime() -> &'static LolaRuntimeImpl {
+    use com_api::Builder;
+    use com_api::RuntimeBuilder;
+    use com_api::{LolaRuntimeBuilderImpl, LolaRuntimeImpl};
+    use std::path::PathBuf;
+    use std::sync::LazyLock;
+    static RUNTIME: LazyLock<LolaRuntimeImpl> = LazyLock::new(|| {
+        let mut lola_runtime_builder = LolaRuntimeBuilderImpl::new();
+        lola_runtime_builder.load_config(&PathBuf::from("./examples/rust/cycle-benchmark/etc/mw_com_config.json"));
+        lola_runtime_builder.build().unwrap()
+    });
+    &RUNTIME
 }
 
 fn run_as_primary(params: Params, app_config: ApplicationConfig) {
@@ -50,6 +65,8 @@ fn run_as_primary(params: Params, app_config: ApplicationConfig) {
         "Starting primary agent {} using signalling {:?}",
         params.agent_id, signalling
     );
+
+    let runtime = mw_com_runtime();
 
     match signalling {
         SignallingType::DirectMpsc => {
@@ -61,14 +78,14 @@ fn run_as_primary(params: Params, app_config: ApplicationConfig) {
         },
         signalling @ SignallingType::DirectTcp | signalling @ SignallingType::DirectUnix => {
             let config = direct_sockets::make_primary_config(params, app_config, signalling);
-            direct_sockets::Primary::new(config)
+            direct_sockets::Primary::new(config, runtime)
                 .expect("failed to create direct socket primary")
                 .run()
                 .unwrap();
         },
         signalling @ SignallingType::RelayedTcp | signalling @ SignallingType::RelayedUnix => {
             let config = relayed_sockets::make_primary_config(params, app_config, signalling);
-            relayed_sockets::Primary::new(config)
+            relayed_sockets::Primary::new(config, runtime)
                 .expect("failed to create relayed socket primary")
                 .run()
                 .unwrap();
@@ -83,14 +100,16 @@ fn run_as_secondary(params: Params, app_config: ApplicationConfig) {
         params.agent_id, signalling
     );
 
+    let runtime = mw_com_runtime();
+
     match signalling {
         SignallingType::DirectMpsc => {
             let config = direct_mpsc::make_secondary_config(params, app_config);
-            direct_mpsc::Secondary::new(config).run();
+            direct_mpsc::Secondary::new(config, runtime).run();
         },
         signalling @ SignallingType::DirectTcp | signalling @ SignallingType::DirectUnix => {
             let config = direct_sockets::make_secondary_config(params, app_config, signalling);
-            direct_sockets::Secondary::new(config).run();
+            direct_sockets::Secondary::new(config, runtime).run();
         },
         signalling @ SignallingType::RelayedTcp | signalling @ SignallingType::RelayedUnix => {
             let config = relayed_sockets::make_secondary_config(params, app_config, signalling);
@@ -146,18 +165,12 @@ mod direct_mpsc {
             app_config.secondaries().is_empty(),
             "mpsc-only signalling does not support multi-agent configurations",
         );
-        assert!(
-            app_config.recorders().is_empty(),
-            "ERROR: mpsc-only signalling does not support configurations with recorders"
-        );
 
         let agent_id = params.agent_id;
         PrimaryConfig {
             id: agent_id,
             cycle_time: params.feo_cycle_time,
             activity_dependencies: app_config.activity_dependencies(),
-            // With only one agent, we cannot attach a recorder
-            recorder_ids: vec![],
             worker_assignments: app_config.worker_assignments().remove(&agent_id).unwrap(),
             timeout: Duration::from_secs(10),
             startup_timeout: Duration::from_secs(10),
@@ -191,11 +204,23 @@ mod direct_sockets {
         signalling: SignallingType,
     ) -> PrimaryConfig {
         let agent_id = params.agent_id;
+        let all_agent_assignments = app_config
+            .worker_assignments()
+            .iter()
+            .map(|(a, v)| {
+                (
+                    *a,
+                    v.iter()
+                        .map(|(w, v)| (*w, v.iter().map(|(a, _)| *a).collect::<Vec<_>>()))
+                        .collect::<Vec<_>>(),
+                )
+            })
+            .collect::<Vec<_>>();
         PrimaryConfig {
             id: agent_id,
             cycle_time: params.feo_cycle_time,
             activity_dependencies: app_config.activity_dependencies(),
-            recorder_ids: app_config.recorders(),
+            all_agent_assignments,
             worker_assignments: app_config.worker_assignments().remove(&agent_id).unwrap(),
             timeout: Duration::from_secs(10),
             connection_timeout: Duration::from_secs(10),
@@ -256,7 +281,6 @@ mod relayed_sockets {
         PrimaryConfig {
             cycle_time: params.feo_cycle_time,
             activity_dependencies: app_config.activity_dependencies(),
-            recorder_ids: app_config.recorders(),
             worker_assignments: app_config.worker_assignments().remove(&agent_id).unwrap(),
             timeout: Duration::from_secs(10),
             connection_timeout: Duration::from_secs(10),

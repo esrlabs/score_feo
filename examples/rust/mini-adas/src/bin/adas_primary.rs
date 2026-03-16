@@ -11,16 +11,14 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#[cfg(feature = "com_mw")]
 use adas::config::init_mw_com_runtime;
 #[cfg(not(feature = "com_mw"))]
-use adas::config::{agent_assignments_ids, topic_dependencies, COM_BACKEND, MAX_ADDITIONAL_SUBSCRIBERS};
+use adas::config::{agent_assignments_ids, topic_dependencies, COM_BACKEND};
 #[cfg(not(feature = "com_mw"))]
 use feo::agent::com_init::initialize_com_primary;
 use feo::ids::AgentId;
 use feo_time::Duration;
 use score_log::{error, info, LevelFilter};
-use std::collections::HashSet;
 use stdout_logger::StdoutLoggerBuilder;
 
 const AGENT_ID: AgentId = AgentId::new(100);
@@ -43,20 +41,14 @@ fn main() {
 
     // Initialize topics. Do not drop.
     #[cfg(not(feature = "com_mw"))]
-    let _topic_guards = initialize_com_primary(
-        COM_BACKEND,
-        AGENT_ID,
-        topic_dependencies(),
-        &agent_assignments_ids(),
-        MAX_ADDITIONAL_SUBSCRIBERS,
-    );
+    let _topic_guards =
+        initialize_com_primary(COM_BACKEND, AGENT_ID, topic_dependencies(), &agent_assignments_ids(), 0);
 
     // Initialize MW COM
-    #[cfg(feature = "com_mw")]
-    init_mw_com_runtime(AGENT_ID);
+    let runtime = init_mw_com_runtime(AGENT_ID);
 
     // Setup and run primary
-    cfg::Primary::new(config)
+    cfg::Primary::new(config, runtime)
         .unwrap_or_else(|err| {
             error!("Failed to initialize primary agent: {:?}", err);
             std::process::exit(1);
@@ -69,9 +61,6 @@ fn main() {
 struct Params {
     /// Cycle time in milli seconds
     feo_cycle_time: Duration,
-    /// Recorder IDs
-    #[allow(dead_code)]
-    recorder_ids: Vec<AgentId>,
 }
 
 impl Params {
@@ -85,21 +74,7 @@ impl Params {
             .map(Duration::from_millis)
             .unwrap_or(DEFAULT_FEO_CYCLE_TIME);
 
-        // Second argument are the recorder IDs to wait for as dot-separated list, e.g. 900 or 900.901
-        let recorder_ids = args
-            .get(2)
-            .and_then(|s| {
-                s.split('.')
-                    .map(|id| id.parse::<u64>().map(AgentId::from))
-                    .collect::<Result<_, _>>()
-                    .ok()
-            })
-            .unwrap_or_default();
-
-        Self {
-            feo_cycle_time,
-            recorder_ids,
-        }
+        Self { feo_cycle_time }
     }
 }
 
@@ -115,8 +90,6 @@ mod cfg {
             id: AGENT_ID,
             cycle_time: params.feo_cycle_time,
             activity_dependencies: activity_dependencies(),
-            // With only one agent, we cannot attach a recorder
-            recorder_ids: vec![],
             worker_assignments: agent_assignments().remove(&AGENT_ID).unwrap(),
             timeout: Duration::from_secs(10),
             startup_timeout: Duration::from_secs(10),
@@ -126,20 +99,17 @@ mod cfg {
 
 #[cfg(feature = "signalling_direct_tcp")]
 mod cfg {
-    use super::{check_ids, Duration, Params, AGENT_ID};
+    use super::{Duration, Params, AGENT_ID};
     use adas::config::{activity_dependencies, agent_assignments, worker_agent_map, BIND_ADDR};
     use feo::{
         agent::NodeAddress,
-        ids::{ActivityId, AgentId, WorkerId},
+        ids::{ActivityId, WorkerId},
     };
-    use std::collections::{HashMap, HashSet};
+    use std::collections::HashMap;
 
     pub(super) use feo::agent::direct::primary::{Primary, PrimaryConfig};
 
     pub(super) fn make_config(params: Params) -> PrimaryConfig {
-        let agent_ids: HashSet<AgentId> = agent_assignments().keys().copied().collect();
-        check_ids(&params.recorder_ids, &agent_ids);
-
         let activity_worker_map: HashMap<ActivityId, WorkerId> = agent_assignments()
             .values()
             .flat_map(|vec| {
@@ -148,11 +118,22 @@ mod cfg {
             })
             .collect();
 
+        let all_agent_assignments = agent_assignments()
+            .iter()
+            .map(|(a, v)| {
+                (
+                    *a,
+                    v.iter()
+                        .map(|(w, v)| (*w, v.iter().map(|(a, _)| *a).collect::<Vec<_>>()))
+                        .collect::<Vec<_>>(),
+                )
+            })
+            .collect::<Vec<_>>();
+
         PrimaryConfig {
             id: AGENT_ID,
             cycle_time: params.feo_cycle_time,
             activity_dependencies: activity_dependencies(),
-            recorder_ids: params.recorder_ids,
             worker_assignments: agent_assignments().remove(&AGENT_ID).unwrap(),
             timeout: Duration::from_secs(10),
             connection_timeout: Duration::from_secs(10),
@@ -165,26 +146,24 @@ mod cfg {
                     (*activity_id, agent_id)
                 })
                 .collect(),
+            all_agent_assignments,
         }
     }
 }
 
 #[cfg(feature = "signalling_direct_unix")]
 mod cfg {
-    use super::{check_ids, Duration, Params, AGENT_ID};
+    use super::{Duration, Params, AGENT_ID};
     use adas::config::{activity_dependencies, agent_assignments, socket_paths, worker_agent_map};
     use feo::{
         agent::NodeAddress,
-        ids::{ActivityId, AgentId, WorkerId},
+        ids::{ActivityId, WorkerId},
     };
-    use std::collections::{HashMap, HashSet};
+    use std::collections::HashMap;
 
     pub(super) use feo::agent::direct::primary::{Primary, PrimaryConfig};
 
     pub(super) fn make_config(params: Params) -> PrimaryConfig {
-        let agent_ids: HashSet<AgentId> = agent_assignments().keys().copied().collect();
-        check_ids(&params.recorder_ids, &agent_ids);
-
         let activity_worker_map: HashMap<ActivityId, WorkerId> = agent_assignments()
             .values()
             .flat_map(|vec| {
@@ -192,12 +171,22 @@ mod cfg {
                     .flat_map(move |(wid, aid_b)| aid_b.iter().map(|v| (v.0, *wid)))
             })
             .collect();
+        let all_agent_assignments = agent_assignments()
+            .iter()
+            .map(|(a, v)| {
+                (
+                    *a,
+                    v.iter()
+                        .map(|(w, v)| (*w, v.iter().map(|(a, _)| *a).collect::<Vec<_>>()))
+                        .collect::<Vec<_>>(),
+                )
+            })
+            .collect::<Vec<_>>();
 
         PrimaryConfig {
             id: AGENT_ID,
             cycle_time: params.feo_cycle_time,
             activity_dependencies: activity_dependencies(),
-            recorder_ids: params.recorder_ids,
             worker_assignments: agent_assignments().remove(&AGENT_ID).unwrap(),
             timeout: Duration::from_secs(10),
             connection_timeout: Duration::from_secs(10),
@@ -210,17 +199,18 @@ mod cfg {
                     (*activity_id, agent_id)
                 })
                 .collect(),
+            all_agent_assignments,
         }
     }
 }
 
 #[cfg(feature = "signalling_relayed_tcp")]
 mod cfg {
-    use super::{check_ids, Duration, Params, AGENT_ID};
+    use super::{Duration, Params, AGENT_ID};
     use adas::config::{activity_dependencies, agent_assignments, worker_agent_map, BIND_ADDR, BIND_ADDR2};
     use feo::agent::NodeAddress;
-    use feo::ids::{ActivityId, AgentId, WorkerId};
-    use std::collections::{HashMap, HashSet};
+    use feo::ids::{ActivityId, WorkerId};
+    use std::collections::HashMap;
 
     pub(super) use feo::agent::relayed::primary::{Primary, PrimaryConfig};
 
@@ -233,13 +223,9 @@ mod cfg {
             })
             .collect();
 
-        let agent_ids: HashSet<AgentId> = agent_assignments().keys().copied().collect();
-        check_ids(&params.recorder_ids, &agent_ids);
-
         PrimaryConfig {
             cycle_time: params.feo_cycle_time,
             activity_dependencies: activity_dependencies(),
-            recorder_ids: params.recorder_ids,
             worker_assignments: agent_assignments().remove(&AGENT_ID).unwrap(),
             timeout: Duration::from_secs(10),
             connection_timeout: Duration::from_secs(10),
@@ -255,11 +241,11 @@ mod cfg {
 
 #[cfg(feature = "signalling_relayed_unix")]
 mod cfg {
-    use super::{check_ids, Duration, Params, AGENT_ID};
+    use super::{Duration, Params, AGENT_ID};
     use adas::config::{activity_dependencies, agent_assignments, socket_paths, worker_agent_map};
     use feo::agent::NodeAddress;
-    use feo::ids::{ActivityId, AgentId, WorkerId};
-    use std::collections::{HashMap, HashSet};
+    use feo::ids::{ActivityId, WorkerId};
+    use std::collections::HashMap;
 
     pub(super) use feo::agent::relayed::primary::{Primary, PrimaryConfig};
 
@@ -272,13 +258,9 @@ mod cfg {
             })
             .collect();
 
-        let agent_ids: HashSet<AgentId> = agent_assignments().keys().copied().collect();
-        check_ids(&params.recorder_ids, &agent_ids);
-
         PrimaryConfig {
             cycle_time: params.feo_cycle_time,
             activity_dependencies: activity_dependencies(),
-            recorder_ids: params.recorder_ids,
             worker_assignments: agent_assignments().remove(&AGENT_ID).unwrap(),
             timeout: Duration::from_secs(10),
             connection_timeout: Duration::from_secs(10),
@@ -292,17 +274,56 @@ mod cfg {
     }
 }
 
-#[allow(dead_code)]
-fn check_ids<'t, T>(recorder_ids: &'t T, agent_ids: &HashSet<AgentId>)
-where
-    &'t T: IntoIterator<Item = &'t AgentId>,
-{
-    let mut ids = agent_ids.clone();
-    for recorder_id in recorder_ids {
-        let is_new = ids.insert(*recorder_id);
-        assert!(
-            is_new,
-            "Agent id {recorder_id} of recorder is not unique within all agents"
-        );
+#[cfg(feature = "signalling_direct_mw_com")]
+mod cfg {
+    use super::{Duration, Params, AGENT_ID};
+    use adas::config::worker_agent_map;
+    use adas::config::{activity_dependencies, agent_assignments};
+    use feo::agent::NodeAddress;
+    use feo::ids::ActivityId;
+    use feo::ids::WorkerId;
+    use std::collections::HashMap;
+
+    pub(super) use feo::agent::direct::primary::{Primary, PrimaryConfig};
+
+    pub(super) fn make_config(params: Params) -> PrimaryConfig {
+        let all_agent_assignments = agent_assignments()
+            .iter()
+            .map(|(a, v)| {
+                (
+                    *a,
+                    v.iter()
+                        .map(|(w, v)| (*w, v.iter().map(|(a, _)| *a).collect::<Vec<_>>()))
+                        .collect::<Vec<_>>(),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        let activity_worker_map: HashMap<ActivityId, WorkerId> = agent_assignments()
+            .values()
+            .flat_map(|vec| {
+                vec.iter()
+                    .flat_map(move |(wid, aid_b)| aid_b.iter().map(|v| (v.0, *wid)))
+            })
+            .collect();
+
+        PrimaryConfig {
+            id: AGENT_ID,
+            cycle_time: params.feo_cycle_time,
+            activity_dependencies: activity_dependencies(),
+            all_agent_assignments,
+            worker_assignments: agent_assignments().remove(&AGENT_ID).unwrap(),
+            timeout: Duration::from_secs(10),
+            startup_timeout: Duration::from_secs(10),
+            connection_timeout: Duration::from_secs(10),
+            endpoint: NodeAddress::MwCom,
+            activity_agent_map: activity_worker_map
+                .iter()
+                .map(|(activity_id, worker_id)| {
+                    let agent_id = worker_agent_map().get(worker_id).copied().unwrap();
+                    (*activity_id, agent_id)
+                })
+                .collect(),
+        }
     }
 }

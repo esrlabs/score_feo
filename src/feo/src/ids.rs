@@ -16,17 +16,12 @@
 use core::fmt;
 use core::hash::Hash;
 use core::marker::PhantomData;
-#[cfg(feature = "recording")]
-use postcard::experimental::max_size::MaxSize;
 use score_log::fmt::ScoreDebug;
 use score_log::ScoreDebug;
-#[cfg(feature = "recording")]
-use serde::{Deserialize, Serialize};
 
 /// Identifies an activity / task
 pub type ActivityId = GenericId<ActivityIdMarker>;
 
-#[cfg_attr(feature = "recording", derive(Serialize, Deserialize, MaxSize))]
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct ActivityIdMarker;
 
@@ -39,7 +34,6 @@ impl GetPrefix for ActivityIdMarker {
 /// Identifies an agent / process
 pub type AgentId = GenericId<AgentIdMarker>;
 
-#[cfg_attr(feature = "recording", derive(Serialize, Deserialize, MaxSize))]
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct AgentIdMarker;
 
@@ -85,7 +79,6 @@ impl GetPrefix for WorkerIdMarker {
 /// Identifies a signalling relay
 pub type RelayId = GenericId<RelayIdMarker>;
 
-#[cfg_attr(feature = "recording", derive(Serialize, Deserialize, MaxSize))]
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub struct RelayIdMarker;
 
@@ -102,7 +95,6 @@ pub trait GetPrefix: fmt::Debug + Clone + Copy + Hash + PartialEq + Eq {
     }
 }
 
-#[cfg_attr(feature = "recording", derive(Serialize, Deserialize, MaxSize))]
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct GenericId<T: GetPrefix> {
     id: u64,

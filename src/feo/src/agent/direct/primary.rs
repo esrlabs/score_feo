@@ -21,18 +21,27 @@ use crate::error::Error;
 use crate::ids::{ActivityId, AgentId, WorkerId};
 use crate::scheduler::Scheduler;
 use crate::signalling::common::interface::{ConnectScheduler, ConnectWorker};
+use crate::signalling::direct::mw_com::scheduler_connector::MwComSchedulerConnector;
+use crate::signalling::direct::mw_com::worker_connector::agent_output;
+use crate::signalling::direct::mw_com::worker_connector::MwComWorkerConnector;
 use crate::signalling::direct::scheduler::{TcpSchedulerConnector, UnixSchedulerConnector};
 use crate::signalling::direct::worker::{TcpWorkerConnector, UnixWorkerConnector};
 use crate::timestamp;
 use crate::worker::Worker;
+use crate::TOKIO_RT;
 use alloc::boxed::Box;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
+use com_api::LolaRuntimeImpl;
 use core::sync::atomic::AtomicBool;
 use feo_time::Duration;
+use score_log::debug;
 use score_log::error;
 use std::collections::HashMap;
+use std::sync::Barrier;
 use std::thread::{self, JoinHandle};
+
+type WorkerWithActivities = (WorkerId, Vec<ActivityId>);
 
 /// Configuration of the primary agent
 pub struct PrimaryConfig {
@@ -42,13 +51,13 @@ pub struct PrimaryConfig {
     pub cycle_time: Duration,
     /// Dependencies per activity
     pub activity_dependencies: HashMap<ActivityId, Vec<ActivityId>>,
-    /// IDs of all recorders for which the scheduler waits
-    pub recorder_ids: Vec<AgentId>,
+    /// All agent assignments
+    pub all_agent_assignments: Vec<(AgentId, Vec<WorkerWithActivities>)>,
     /// Worker assignments to be run in this agent
     pub worker_assignments: Vec<(WorkerId, Vec<ActivityIdAndBuilder>)>,
     /// Receive timeout of the scheduler's connector
     pub timeout: Duration,
-    /// Timeout for waiting on initial connections from workers/recorders.
+    /// Timeout for waiting on initial connections from workers
     pub connection_timeout: Duration,
     /// Timeout for waiting on activities to become ready during startup.
     pub startup_timeout: Duration,
@@ -68,36 +77,67 @@ pub struct Primary {
 
 impl Primary {
     /// Create a new instance
-    pub fn new(config: PrimaryConfig) -> Result<Self, Error> {
+    pub fn new(config: PrimaryConfig, runtime: &'static LolaRuntimeImpl) -> Result<Self, Error> {
         let PrimaryConfig {
+            id,
             cycle_time,
             activity_dependencies,
-            recorder_ids,
             endpoint,
             timeout,
             connection_timeout,
             startup_timeout,
             activity_agent_map,
+            worker_assignments,
+            all_agent_assignments,
             ..
         } = config;
 
+        if let &NodeAddress::MwCom = &endpoint {
+            assert!(
+                worker_assignments.is_empty(),
+                "mw com backend doesn't work with workers being in the same process as the scheduler"
+            );
+        }
+
+        let _guard = TOKIO_RT.enter();
+
+        // Initialization sync for worker proxies
+        let barrier = Arc::new(Barrier::new(worker_assignments.len()));
+        let agent_output = agent_output(runtime, config.id);
+
         // Create worker threads first so that the connector of the scheduler can connect
-        let worker_threads = config
-            .worker_assignments
+        let worker_threads = worker_assignments
             .into_iter()
-            .map(|(id, activities)| {
+            .map(|(worker_id, activities)| {
                 let endpoint = endpoint.clone();
                 let agent_id = config.id;
+                let barrier_clone = barrier.clone();
+                let agent_output = agent_output.clone();
                 thread::spawn(move || match endpoint {
+                    NodeAddress::MwCom => {
+                        let mut connector = MwComWorkerConnector::new(
+                            barrier_clone,
+                            activities.iter().map(|(a, _)| *a).collect(),
+                            worker_id,
+                            agent_output,
+                            runtime,
+                        );
+                        connector.connect_remote().expect("failed to connect");
+
+                        let activity_builders = activities;
+                        let worker = Worker::new(worker_id, agent_id, activity_builders, connector, timeout);
+
+                        worker.run().expect("failed to run worker");
+                    },
                     NodeAddress::Tcp(addr) => {
                         let mut connector = TcpWorkerConnector::new(addr, activities.iter().map(|(id, _)| *id));
                         connector.connect_remote().expect("failed to connect");
 
                         let activity_builders = activities;
-                        let worker = Worker::new(id, agent_id, activity_builders, connector, timeout);
+                        let worker = Worker::new(worker_id, agent_id, activity_builders, connector, timeout);
 
                         if let Err(e) = worker.run() {
-                            error!("Worker {} in primary agent failed: {:?}", id, e);
+                            error!("Worker {} in primary agent failed: {:?}", worker_id, e);
                         }
                     },
                     NodeAddress::UnixSocket(path) => {
@@ -105,10 +145,10 @@ impl Primary {
                         connector.connect_remote().expect("failed to connect");
 
                         let activity_builders = activities;
-                        let worker = Worker::new(id, agent_id, activity_builders, connector, timeout);
+                        let worker = Worker::new(worker_id, agent_id, activity_builders, connector, timeout);
 
                         if let Err(e) = worker.run() {
-                            error!("Worker {} in primary agent failed: {:?}", id, e);
+                            error!("Worker {} in primary agent failed: {:?}", worker_id, e);
                         }
                     },
                 })
@@ -116,17 +156,16 @@ impl Primary {
             .collect();
 
         let mut connector = match endpoint {
+            NodeAddress::MwCom => Box::new(MwComSchedulerConnector::new(id, all_agent_assignments, runtime)),
             NodeAddress::Tcp(addr) => Box::new(TcpSchedulerConnector::new(
                 addr,
                 activity_dependencies.keys().cloned(),
-                recorder_ids.iter().cloned(),
                 activity_agent_map,
                 connection_timeout,
             )) as Box<dyn ConnectScheduler>,
             NodeAddress::UnixSocket(path) => Box::new(UnixSchedulerConnector::new(
                 &path,
                 activity_dependencies.keys().cloned(),
-                recorder_ids.iter().cloned(),
                 activity_agent_map,
                 connection_timeout,
             )) as Box<dyn ConnectScheduler>,
@@ -137,6 +176,7 @@ impl Primary {
         let shutdown_requested = Arc::new(AtomicBool::new(false));
         register_sigterm_handler(shutdown_requested.clone());
 
+        debug!("Creating scheduler...");
         let scheduler = Scheduler::new(
             config.id,
             cycle_time,
@@ -144,7 +184,6 @@ impl Primary {
             startup_timeout,
             activity_dependencies,
             connector,
-            recorder_ids,
             shutdown_requested,
         );
 

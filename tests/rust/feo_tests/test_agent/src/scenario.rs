@@ -135,13 +135,6 @@ pub struct Counter {
     pub counter: usize,
 }
 
-impl CommData for Counter {
-    const ID: &'static str = "Counter";
-}
-
-// SAFETY: safe to relocate
-unsafe impl Reloc for Counter {}
-
 // SAFETY: only writes via field access
 unsafe impl PlacementDefault for Counter {
     #[allow(clippy::not_unsafe_ptr_arg_deref)] // part of MW COM API
@@ -151,3 +144,10 @@ unsafe impl PlacementDefault for Counter {
         }
     }
 }
+
+impl CommData for Counter {
+    const ID: &'static str = "Counter";
+}
+
+// SAFETY: safe to relocate
+unsafe impl Reloc for Counter {}

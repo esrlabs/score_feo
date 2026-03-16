@@ -75,12 +75,10 @@ where
 /// which are only needed by this particular implementation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ScoreDebug)]
 pub(crate) enum ProtocolSignal {
-    /// Core [Signal] as known to schedulers, workers and recorders
+    /// Core [Signal] as known to schedulers and workers
     Core(Signal),
     /// Hello signal announcing the presence of an activity with [ActivityId]
     ActivityHello(ActivityId),
-    /// Hello signal announcing the presence of a recorder with [AgentId]
-    RecorderHello(AgentId),
     /// Hello signal announcing the presence of a generic peer with its [ChannelId]
     ChannelHello(ChannelId),
 }
@@ -168,17 +166,6 @@ impl EncodeDecode for ProtocolSignal {
                 encode_data!(w; SignalTag::CoreStartupSync; sync_info => u128);
             },
 
-            // Recorder-related
-            ProtocolSignal::Core(Signal::TaskChainStart(timestamp)) => {
-                encode_data!(w; SignalTag::CoreTaskChainStart; timestamp => u128);
-            },
-            ProtocolSignal::Core(Signal::TaskChainEnd(timestamp)) => {
-                encode_data!(w; SignalTag::CoreTaskChainEnd; timestamp => u128);
-            },
-            ProtocolSignal::Core(Signal::RecorderReady((agent_id, timestamp))) => {
-                encode_data!(w; SignalTag::CoreRecorderReady; agent_id => u64, timestamp => u128);
-            },
-
             // Activity-related
             ProtocolSignal::Core(Signal::Startup((activity_id, timestamp))) => {
                 encode_data!(w; SignalTag::CoreStartup; activity_id => u64, timestamp => u128);
@@ -205,9 +192,6 @@ impl EncodeDecode for ProtocolSignal {
             // Signalling-layer signals
             ProtocolSignal::ActivityHello(worker_id) => {
                 encode_data!(w; SignalTag::ConnectorActivityHello; worker_id => u64);
-            },
-            ProtocolSignal::RecorderHello(agent_id) => {
-                encode_data!(w; SignalTag::ConnectorRecorderHello; agent_id => u64);
             },
             ProtocolSignal::ChannelHello(channel_id) => match channel_id {
                 ChannelId::Activity(id) => {
@@ -259,17 +243,6 @@ impl EncodeDecode for ProtocolSignal {
                 decode_data!(src; Signal::StartupSync, ProtocolSignal::Core; u128 => SyncInfo)
             },
 
-            // Recorder-related
-            CoreTaskChainStart => {
-                decode_data!(src; Signal::TaskChainStart, ProtocolSignal::Core; u128 => Timestamp)
-            },
-            CoreTaskChainEnd => {
-                decode_data!(src; Signal::TaskChainEnd, ProtocolSignal::Core; u128 => Timestamp)
-            },
-            CoreRecorderReady => {
-                decode_data!(src; Signal::RecorderReady, ProtocolSignal::Core; u64 => AgentId; u128 => Timestamp)
-            },
-
             // Activity-related
             CoreStartup => {
                 decode_data!(src; Signal::Startup, ProtocolSignal::Core; u64 => ActivityId; u128 => Timestamp)
@@ -296,9 +269,6 @@ impl EncodeDecode for ProtocolSignal {
             // Signalling-layer signals
             ConnectorActivityHello => {
                 decode_data!(src; ProtocolSignal::ActivityHello; u64 => ActivityId)
-            },
-            ConnectorRecorderHello => {
-                decode_data!(src; ProtocolSignal::RecorderHello; u64 => AgentId)
             },
             ConnectorChannelActivityHello => {
                 decode_data!(src; ChannelId::Activity, ProtocolSignal::ChannelHello; u64 => ActivityId)
@@ -341,9 +311,6 @@ impl From<ActivityError> for u8 {
 #[repr(u8)]
 pub(crate) enum SignalTag {
     CoreStartupSync = 1,
-    CoreTaskChainStart = 11,
-    CoreTaskChainEnd = 12,
-    CoreRecorderReady = 13,
     CoreStartup = 21,
     CoreStep = 22,
     CoreShutdown = 23,
@@ -352,7 +319,6 @@ pub(crate) enum SignalTag {
     CoreTerminate = 25,
     CoreTerminateAck = 26,
     ConnectorActivityHello = 31,
-    ConnectorRecorderHello = 32,
     ConnectorChannelActivityHello = 33,
     ConnectorChannelWorkerHello = 34,
     ConnectorChannelAgentHello = 35,
@@ -367,9 +333,6 @@ impl TryFrom<u8> for SignalTag {
 
         match value {
             v if v == CoreStartupSync as u8 => Ok(CoreStartupSync),
-            v if v == CoreTaskChainStart as u8 => Ok(CoreTaskChainStart),
-            v if v == CoreTaskChainEnd as u8 => Ok(CoreTaskChainEnd),
-            v if v == CoreRecorderReady as u8 => Ok(CoreRecorderReady),
             v if v == CoreStartup as u8 => Ok(CoreStartup),
             v if v == CoreStep as u8 => Ok(CoreStep),
             v if v == CoreShutdown as u8 => Ok(CoreShutdown),
@@ -378,7 +341,6 @@ impl TryFrom<u8> for SignalTag {
             v if v == CoreTerminate as u8 => Ok(CoreTerminate),
             v if v == CoreTerminateAck as u8 => Ok(CoreTerminateAck),
             v if v == ConnectorActivityHello as u8 => Ok(ConnectorActivityHello),
-            v if v == ConnectorRecorderHello as u8 => Ok(ConnectorRecorderHello),
             v if v == ConnectorChannelActivityHello as u8 => Ok(ConnectorChannelActivityHello),
             v if v == ConnectorChannelWorkerHello as u8 => Ok(ConnectorChannelWorkerHello),
             v if v == ConnectorChannelAgentHello as u8 => Ok(ConnectorChannelAgentHello),
@@ -394,9 +356,6 @@ fn connector_signal_roundtrips() {
 
     #[rustfmt::skip]
     let signals_with_consumed_bytes = [
-        (ProtocolSignal::Core(Signal::TaskChainStart(timestamp)), 18),
-        (ProtocolSignal::Core(Signal::TaskChainEnd(timestamp)), 18),
-        (ProtocolSignal::Core(Signal::RecorderReady((AgentId::from(123), timestamp))), 26),
         (ProtocolSignal::Core(Signal::Startup((ActivityId::from(123), timestamp))), 26),
         (ProtocolSignal::Core(Signal::Step((ActivityId::from(123), timestamp))), 26),
         (ProtocolSignal::Core(Signal::Shutdown((ActivityId::from(123), timestamp))), 26),
@@ -405,7 +364,6 @@ fn connector_signal_roundtrips() {
         (ProtocolSignal::ActivityHello(ActivityId::from(123)), 10),
         (ProtocolSignal::Core(Signal::Terminate(timestamp)), 18),
         (ProtocolSignal::Core(Signal::TerminateAck(AgentId::from(123))), 10),
-        (ProtocolSignal::RecorderHello(AgentId::from(123)), 10),
     ];
 
     for (signal, consumed_bytes) in signals_with_consumed_bytes {

@@ -23,14 +23,12 @@ This phase focuses on stopping the application-level logic (the activities).
 2.  **Identify Active Components**: The scheduler first identifies all activities that have successfully started. An activity is considered "started" if it has sent a `Ready` signal at least once (`ever_ready == true`).
 
 3.  **Send `Shutdown` Signal**: The scheduler sends a `Signal::Shutdown((ActivityId, Timestamp))` to each started activity.
-    -   The `Scheduler` also forwards this `Shutdown` signal to all connected `Recorder` agents. This is for logging purposes; the recorder's only action is to write this event to the recording file.
 
 4.  **Worker Response**:
     -   Upon receiving the `Shutdown` signal, a `Worker` thread calls the `shutdown()` method on the corresponding `Activity`.
     -   After the activity's shutdown logic completes, the `Worker` sends a `Signal::Ready((ActivityId, Timestamp))` back to the scheduler. This signal acts as a confirmation that the activity has shut down cleanly.
 
 5.  **Scheduler Waits for Confirmation**: The scheduler waits until it has received a `Ready` signal from every activity it sent a `Shutdown` signal to.
-    -   **Crucially, the scheduler does *not* wait for any response from recorders during this phase.** It only tracks acknowledgements from activities.
     -   A timeout is in place to prevent the system from hanging if an activity fails to respond.
 
 ## Phase 2: System-Wide Termination
@@ -38,7 +36,7 @@ This phase focuses on stopping the application-level logic (the activities).
 Once all activities are confirmed to be shut down, this phase terminates all agent processes.
 
 1.  **Broadcast `Terminate` Signal**: The scheduler calls `broadcast_terminate()`, which sends a `Signal::Terminate(Timestamp)` to all connected agents.
-    -   **Direct Mode**: The `SchedulerConnector` sends the `Terminate` signal directly to every connected worker and recorder socket.
+    -   **Direct Mode**: The `SchedulerConnector` sends the `Terminate` signal directly to every connected worker.
     -   **Relayed Mode**: The `SchedulerConnector` sends the `Terminate` signal to its local `PrimarySendRelay` (for remote agents) and its local workers. The relays are responsible for broadcasting the signal over the network.
 
 2.  **Agent Response**:

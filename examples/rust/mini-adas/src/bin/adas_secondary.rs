@@ -11,34 +11,33 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-#[cfg(feature = "com_mw")]
-use adas::config::init_mw_com_runtime;
+#[cfg(not(feature = "com_mw"))]
+use adas::config::{agent_assignments_ids, topic_dependencies, COM_BACKEND};
+#[cfg(not(feature = "com_mw"))]
+use feo::agent::com_init::initialize_com_secondary;
+#[cfg(not(feature = "com_mw"))]
+use feo::ids::ActivityId;
 use score_log::{info, LevelFilter};
+#[cfg(not(feature = "com_mw"))]
+use std::collections::HashSet;
 use stdout_logger::StdoutLoggerBuilder;
 
-#[cfg(any(feature = "signalling_direct_tcp", feature = "signalling_direct_unix"))]
+#[cfg(any(
+    feature = "signalling_direct_tcp",
+    feature = "signalling_direct_unix",
+    feature = "signalling_direct_mw_com"
+))]
 fn main() {
     use adas::config::agent_assignments;
-    #[cfg(not(feature = "com_mw"))]
-    use adas::config::agent_assignments_ids;
+    use adas::config::init_mw_com_runtime;
     #[cfg(feature = "signalling_direct_unix")]
     use adas::config::socket_paths;
-    #[cfg(not(feature = "com_mw"))]
-    use adas::config::topic_dependencies;
     #[cfg(feature = "signalling_direct_tcp")]
     use adas::config::BIND_ADDR;
-    #[cfg(not(feature = "com_mw"))]
-    use adas::config::COM_BACKEND;
-    #[cfg(not(feature = "com_mw"))]
-    use feo::agent::com_init::initialize_com_secondary;
     use feo::agent::direct::secondary::{Secondary, SecondaryConfig};
     use feo::agent::NodeAddress;
-    #[cfg(not(feature = "com_mw"))]
-    use feo::ids::ActivityId;
     use feo_time::Duration;
     use params::Params;
-    #[cfg(not(feature = "com_mw"))]
-    use std::collections::HashSet;
 
     init_logging();
 
@@ -55,6 +54,8 @@ fn main() {
         endpoint: NodeAddress::Tcp(BIND_ADDR),
         #[cfg(feature = "signalling_direct_unix")]
         endpoint: NodeAddress::UnixSocket(socket_paths().0),
+        #[cfg(feature = "signalling_direct_mw_com")]
+        endpoint: NodeAddress::MwCom,
     };
 
     // determine set of activity ids belonging to this agent
@@ -68,37 +69,26 @@ fn main() {
         .collect();
 
     // Initialize MW COM
-    #[cfg(feature = "com_mw")]
-    init_mw_com_runtime(params.agent_id);
+    let runtime = init_mw_com_runtime(params.agent_id);
 
     // Initialize topics. Do not drop.
     #[cfg(not(feature = "com_mw"))]
     let _topic_guards = initialize_com_secondary(COM_BACKEND, topic_dependencies(), &local_activities);
 
-    let secondary = Secondary::new(config);
+    let secondary = Secondary::new(config, runtime);
     secondary.run();
 }
 
 #[cfg(feature = "signalling_relayed_tcp")]
 fn main() {
     use adas::config::agent_assignments;
-    #[cfg(not(feature = "com_mw"))]
-    use adas::config::agent_assignments_ids;
-    #[cfg(not(feature = "com_mw"))]
-    use adas::config::topic_dependencies;
-    #[cfg(not(feature = "com_mw"))]
-    use adas::config::COM_BACKEND;
+    #[cfg(feature = "com_mw")]
+    use adas::config::init_mw_com_runtime;
     use adas::config::{BIND_ADDR, BIND_ADDR2};
-    #[cfg(not(feature = "com_mw"))]
-    use feo::agent::com_init::initialize_com_secondary;
     use feo::agent::relayed::secondary::{Secondary, SecondaryConfig};
     use feo::agent::NodeAddress;
-    #[cfg(not(feature = "com_mw"))]
-    use feo::ids::ActivityId;
     use feo_time::Duration;
     use params::Params;
-    #[cfg(not(feature = "com_mw"))]
-    use std::collections::HashSet;
 
     init_logging();
 
@@ -140,23 +130,13 @@ fn main() {
 #[cfg(feature = "signalling_relayed_unix")]
 fn main() {
     use adas::config::agent_assignments;
-    #[cfg(not(feature = "com_mw"))]
-    use adas::config::agent_assignments_ids;
+    #[cfg(feature = "com_mw")]
+    use adas::config::init_mw_com_runtime;
     use adas::config::socket_paths;
-    #[cfg(not(feature = "com_mw"))]
-    use adas::config::topic_dependencies;
-    #[cfg(not(feature = "com_mw"))]
-    use adas::config::COM_BACKEND;
-    #[cfg(not(feature = "com_mw"))]
-    use feo::agent::com_init::initialize_com_secondary;
     use feo::agent::relayed::secondary::{Secondary, SecondaryConfig};
     use feo::agent::NodeAddress;
-    #[cfg(not(feature = "com_mw"))]
-    use feo::ids::ActivityId;
     use feo_time::Duration;
     use params::Params;
-    #[cfg(not(feature = "com_mw"))]
-    use std::collections::HashSet;
 
     init_logging();
     feo_tracing::init(feo_tracing::LevelFilter::TRACE);

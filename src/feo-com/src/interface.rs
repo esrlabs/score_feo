@@ -437,7 +437,7 @@ impl<'a> ComBackendTopicPrimaryInitialization<'a> {
     }
 }
 
-/// COM backend topic initialization arguments for secondary agents (and recorders)
+/// COM backend topic initialization arguments for secondary agents
 #[derive(Clone, Copy)]
 pub struct ComBackendTopicSecondaryInitialization<'a> {
     topic: Topic<'a>,

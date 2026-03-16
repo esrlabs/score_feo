@@ -52,8 +52,6 @@ pub struct ApplicationConfig {
     bind_addrs: (SocketAddr, SocketAddr),
     /// Socket bind paths of primary agent
     socket_paths: (PathBuf, PathBuf),
-    /// Agent IDs of recorders
-    recorders: HashSet<AgentId>,
     /// Agent assignments
     ///
     /// For each agent id, a set of worker ids running on that agent.
@@ -137,10 +135,6 @@ impl ApplicationConfig {
             .iter()
             .flat_map(|(aid, wids)| wids.iter().map(move |wid| (*wid, *aid)))
             .collect()
-    }
-
-    pub fn recorders(&self) -> Vec<AgentId> {
-        self.recorders.iter().copied().collect()
     }
 
     pub fn worker_assignments(&self) -> WorkerAssignments {
@@ -284,16 +278,13 @@ fn application_config() -> ApplicationConfig {
         })
         .collect();
 
-    let recorders: HashSet<AgentId> = config.recorders.iter().map(|r| AgentId::new(*r)).collect();
-
-    check_consistency(&config, &recorders, &agent_assignments, &activity_deps);
+    check_consistency(&config, &activity_deps);
 
     let app_config = ApplicationConfig {
         signalling: config.signalling,
         primary_agent: AgentId::new(config.primary_agent),
         bind_addrs: (BIND_ADDR, BIND_ADDR2),
         socket_paths: socket_paths(),
-        recorders,
         agent_assignments,
         worker_assignments,
         activity_deps,
@@ -307,26 +298,12 @@ fn application_config() -> ApplicationConfig {
     }
 }
 
-fn check_consistency(
-    config: &RawConfig,
-    recorders: &HashSet<AgentId>,
-    agent_assignments: &AgentAssignments,
-    activity_deps: &ActivityDependencies,
-) {
+fn check_consistency(config: &RawConfig, activity_deps: &ActivityDependencies) {
     // do consistency check wrt primary agent id
     assert!(
         config.agent_assignments.contains_key(&config.primary_agent),
         "Primary agent ID not listed in agent assignments"
     );
-
-    // check consistency of recorders
-    for rid in recorders.iter() {
-        assert!(
-            !agent_assignments.contains_key(rid),
-            "Recorder ID {} must not appear in agent assignments",
-            rid
-        );
-    }
 
     // do basic consistency check wrt worker ids
     let all_workers_agents: HashSet<WorkerId> = config
@@ -375,8 +352,6 @@ struct RawConfig {
     signalling: SignallingType,
     /// ID of primary agent
     primary_agent: u64,
-    /// IDs of recorders
-    recorders: HashSet<u64>,
     /// Agent assignments
     ///
     /// For each agent id, a set of worker ids running on that agent.

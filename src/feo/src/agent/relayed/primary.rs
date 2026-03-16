@@ -26,6 +26,7 @@ use crate::worker::Worker;
 use alloc::boxed::Box;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
+use com_api::LolaRuntimeImpl;
 use core::sync::atomic::AtomicBool;
 use feo_time::Duration;
 use score_log::debug;
@@ -40,13 +41,11 @@ pub struct PrimaryConfig {
     pub cycle_time: Duration,
     /// Dependencies per activity
     pub activity_dependencies: HashMap<ActivityId, Vec<ActivityId>>,
-    /// IDs of all recorders for which the scheduler waits
-    pub recorder_ids: Vec<AgentId>,
     /// Worker assignments to be run in this agent
     pub worker_assignments: Vec<(WorkerId, Vec<ActivityIdAndBuilder>)>,
     /// Receive timeout of the scheduler's connector
     pub timeout: Duration,
-    /// Timeout for waiting on initial connections from workers/recorders.
+    /// Timeout for waiting on initial connections from workers
     pub connection_timeout: Duration,
     /// Timeout for waiting on activities to become ready during startup.
     pub startup_timeout: Duration,
@@ -72,12 +71,11 @@ pub struct Primary {
 
 impl Primary {
     /// Create a new instance
-    pub fn new(config: PrimaryConfig) -> Result<Self, Error> {
+    pub fn new(config: PrimaryConfig, _runtime: &LolaRuntimeImpl) -> Result<Self, Error> {
         let PrimaryConfig {
             id,
             cycle_time,
             activity_dependencies,
-            recorder_ids,
             bind_address_senders,
             bind_address_receivers,
             worker_assignments,
@@ -99,7 +97,6 @@ impl Primary {
                     connection_timeout,
                     worker_agent_map,
                     activity_worker_map,
-                    recorder_ids.clone(),
                 ));
                 let builders = connector.worker_connector_builders();
                 (connector as Box<dyn ConnectScheduler>, builders)
@@ -112,7 +109,6 @@ impl Primary {
                     connection_timeout,
                     worker_agent_map,
                     activity_worker_map,
-                    recorder_ids.clone(),
                 ));
                 let builders = connector.worker_connector_builders();
                 (connector as Box<dyn ConnectScheduler>, builders)
@@ -154,7 +150,6 @@ impl Primary {
             startup_timeout,
             activity_dependencies,
             connector,
-            recorder_ids,
             shutdown_requested,
         );
 

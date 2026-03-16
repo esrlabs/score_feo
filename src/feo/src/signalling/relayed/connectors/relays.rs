@@ -322,9 +322,9 @@ impl<Inter: IsChannel, Intra: IsChannel> SecondaryReceiveRelay<Inter, Intra> {
     }
 }
 
-/// Relay for the primary agent to send signals to secondary agents and recorders
+/// Relay for the primary agent to send signals to secondary agents
 pub struct PrimarySendRelay<Inter: IsChannel> {
-    /// Set of all remote agents (secondaries and recorders)
+    /// Set of all remote agents
     remote_agents: HashSet<AgentId>,
     /// Inter-process sender
     inter_sender: Inter::MultiSender,

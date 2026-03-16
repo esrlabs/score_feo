@@ -1,5 +1,5 @@
 // *******************************************************************************
-// Copyright (c) 2025 Contributors to the Eclipse Foundation
+// Copyright (c) 2026 Contributors to the Eclipse Foundation
 //
 // See the NOTICE file(s) distributed with this work for additional
 // information regarding copyright ownership.
@@ -11,14 +11,13 @@
 // SPDX-License-Identifier: Apache-2.0
 // *******************************************************************************
 
-//! Signalling layer with direct connection between scheduler and workers
-//!
-//! This module provides connector implementations which establish direct connections
-//! between the scheduler and every worker.
-//! The layer does not differentiate between connecting workers in other processes
-//! or in the same process as the scheduler.
+use crate::signalling::direct::mw_com::MwComSignal;
+use alloc::format;
+use com_api::{interface, ProviderInfo, Publisher, Subscriber};
 
-pub(crate) mod mpsc;
-pub(crate) mod mw_com;
-pub(crate) mod scheduler;
-pub(crate) mod worker;
+interface!(
+    interface FeoSignal, {
+        Id = "FeoSignalInterface",
+        signal: Event<MwComSignal>,
+     }
+);

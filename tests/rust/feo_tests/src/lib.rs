@@ -323,3 +323,12 @@ fn multiple_agents_relayed_tcp() {
     info!("Starting multiple_agents_relayed_tcp");
     multiple_agents(Cli::default(), "relayed-tcp")
 }
+
+// Disabled due to limitation of mw com that a scheduler and a worker can't be in the same process
+// TODO: re-enable when the limitation is lifted
+// #[test]
+// fn multiple_agents_mw_com() {
+//     let _guard = aquire_lock();
+//     info!("Starting multiple_agents_mw_com");
+//     multiple_agents(Cli::default(), "mw-com")
+// }
