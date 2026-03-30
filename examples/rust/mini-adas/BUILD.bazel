@@ -12,165 +12,37 @@
 # *******************************************************************************
 
 load("@rules_rust//rust:defs.bzl", "rust_binary", "rust_library")
+load(":adas_variants.bzl", "adas_variants")
 
-rust_library(
-    name = "libmini_adas_rust",
-    srcs = [
-        "src/activities/components.rs",
-        "src/activities/input.rs",
-        "src/activities/mod.rs",
-        "src/activities/output.rs",
-        "src/config.rs",
-        "src/lib.rs",
-    ],
-    crate_features = [
-        "com_linux_shm",
-        "signalling_relayed_tcp",
-    ],
-    crate_name = "mini_adas",
-    visibility = ["//visibility:public"],
-    deps = [
-        "//examples/rust/mini-adas/mini-adas-gen:mini_adas_gen_rs",
-        "//src/feo:libfeo_rust",
-        "//src/feo-com:libfeo_com_rust",
-        "//src/feo-time:libfeo_time_rust",
-        "//src/feo-tracing:libfeo_tracing_rust",
-        "@score_baselibs_rust//src/log/score_log",
-        "@score_crates//:tracing",
-    ],
-)
-
-rust_library(
-    name = "libmini_adas_rust_mw_com",
-    srcs = [
-        "src/activities/components.rs",
-        "src/activities/input.rs",
-        "src/activities/mod.rs",
-        "src/activities/output.rs",
-        "src/config.rs",
-        "src/lib.rs",
-    ],
-    crate_features = [
-        "com_mw",
-        "signalling_relayed_tcp",
-    ],
-    crate_name = "mini_adas",
-    visibility = ["//visibility:public"],
-    deps = [
-        "//examples/rust/mini-adas/mini-adas-gen:mini_adas_gen_rs_mw_com",
-        "//src/feo:libfeo_rust",
-        "//src/feo-com:libfeo_com_rust_mw_com",
-        "//src/feo-time:libfeo_time_rust",
-        "//src/feo-tracing:libfeo_tracing_rust",
-        "@score_baselibs_rust//src/log/score_log",
-        "@score_communication//score/mw/com/impl/rust/com-api/com-api",
-        "@score_crates//:tracing",
-    ],
-)
-
-rust_binary(
-    name = "adas_primary",
-    srcs = [
-        "src/bin/adas_primary.rs",
-    ],
-    crate_features = ["signalling_relayed_tcp"],
-    visibility = ["//visibility:public"],
-    deps = [
-        ":libmini_adas_rust",
-        "//src/feo:libfeo_rust",
-        "//src/feo-com:libfeo_com_rust",
-        "//src/feo-time:libfeo_time_rust",
-        "//src/feo-tracing:libfeo_tracing_rust",
-        "@score_baselibs_rust//src/log/score_log",
-        "@score_baselibs_rust//src/log/stdout_logger",
-    ],
-)
-
-rust_binary(
-    name = "adas_primary_mw_com",
-    srcs = [
-        "src/bin/adas_primary.rs",
-    ],
-    crate_features = [
-        "signalling_relayed_tcp",
-        "com_mw",
-    ],
-    data = [
-        "etc/logging.json",
-        "etc/mw_com_config_100.json",
-    ],
+adas_variants(
+    name = "adas",
     env = {
         "MW_LOG_CONFIG_FILE": "examples/rust/mini-adas/etc/logging.json",
     },
-    rustc_flags = [
-        "-Clink-arg=-lstdc++",
-        "-Clink-arg=-lm",
-        "-Clink-arg=-lc",
+    lib_srcs = [
+        "src/activities/components.rs",
+        "src/activities/input.rs",
+        "src/activities/mod.rs",
+        "src/activities/output.rs",
+        "src/config.rs",
+        "src/lib.rs",
     ],
-    visibility = ["//visibility:public"],
-    deps = [
-        ":libmini_adas_rust_mw_com",
-        "//src/feo:libfeo_rust",
-        "//src/feo-com:libfeo_com_rust_mw_com",
-        "//src/feo-time:libfeo_time_rust",
-        "//src/feo-tracing:libfeo_tracing_rust",
-        "@score_baselibs_rust//src/log/score_log",
-        "@score_baselibs_rust//src/log/stdout_logger",
-        "@score_communication//score/mw/com/impl/rust/com-api/com-api",
+    primary_data = [
+        "etc/logging.json",
+        "etc/mw_com_config_100.json",
     ],
-)
-
-rust_binary(
-    name = "adas_secondary",
-    srcs = [
-        "src/bin/adas_secondary.rs",
+    primary_srcs = [
+        "src/bin/adas_primary.rs",
     ],
-    crate_features = ["signalling_relayed_tcp"],
-    visibility = ["//visibility:public"],
-    deps = [
-        ":libmini_adas_rust",
-        "//src/feo:libfeo_rust",
-        "//src/feo-com:libfeo_com_rust",
-        "//src/feo-time:libfeo_time_rust",
-        "//src/feo-tracing:libfeo_tracing_rust",
-        "@score_baselibs_rust//src/log/score_log",
-        "@score_baselibs_rust//src/log/stdout_logger",
-    ],
-)
-
-rust_binary(
-    name = "adas_secondary_mw_com",
-    srcs = [
-        "src/bin/adas_secondary.rs",
-    ],
-    crate_features = [
-        "signalling_relayed_tcp",
-        "com_mw",
-    ],
-    data = [
+    secondary_data = [
         "etc/logging.json",
         "etc/mw_com_config_101.json",
         "etc/mw_com_config_102.json",
     ],
-    env = {
-        "MW_LOG_CONFIG_FILE": "examples/rust/mini-adas/etc/logging.json",
-    },
-    rustc_flags = [
-        "-Clink-arg=-lstdc++",
-        "-Clink-arg=-lm",
-        "-Clink-arg=-lc",
+    secondary_srcs = [
+        "src/bin/adas_secondary.rs",
     ],
     visibility = ["//visibility:public"],
-    deps = [
-        ":libmini_adas_rust_mw_com",
-        "//src/feo:libfeo_rust",
-        "//src/feo-com:libfeo_com_rust_mw_com",
-        "//src/feo-time:libfeo_time_rust",
-        "//src/feo-tracing:libfeo_tracing_rust",
-        "@score_baselibs_rust//src/log/score_log",
-        "@score_baselibs_rust//src/log/stdout_logger",
-        "@score_communication//score/mw/com/impl/rust/com-api/com-api",
-    ],
 )
 
 cc_library(

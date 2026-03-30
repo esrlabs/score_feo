@@ -1,7 +1,6 @@
 # Mini ADAS Example
 
 Example of a minimal dummy ADAS activity set.
-A recorder can be added to the example and switched on in the primary via a CLI flag.
 
 ## Running
 
@@ -9,41 +8,43 @@ You need to run the following commands in separate terminals.
 
 ```sh
 # Use 400ms cycle time
-bazelisk run //examples/rust/mini-adas:adas_primary -- 400
+bazelisk run //examples/rust/mini-adas:adas_primary_com_iox2_direct_unix -- 400
 ```
 
 ```sh
-bazelisk run //examples/rust/mini-adas:adas_secondary -- 1
+bazelisk run //examples/rust/mini-adas:adas_secondary_com_iox2_direct_unix -- 1
 ```
 
 ```sh
-bazelisk run //examples/rust/mini-adas:adas_secondary -- 2
+bazelisk run //examples/rust/mini-adas:adas_secondary_com_iox2_direct_unix -- 2
 ```
 
-## Using middleware COM for data exchange
+It's possible to switch between com backend implementations:
+* com_iox2 for Iceoryx2
+* com_linux_shm for Linux shared memory backend
+* com_mw for middleware COM backend
 
-In order to use mw com instead of feo-com for data exchange use the following bazel targets instead:
+And signalling implementations:
+* direct_tcp for direct connections via TCP sockets
+* direct_unix for direct connections via UNIX sockets
+* relayed_tcp for relayed signalling via TCP sockets
+* relayed_unix for relayed signalling via UNIX sockets
+* direct_mw_com for direct connections via middleware COM (WIP, not available yet)
+
+For instance, Linux shared memory com backend with TCP scokets signalling implementation may be started with:
 
 ```sh
 # Use 400ms cycle time
-bazelisk run //examples/rust/mini-adas:adas_primary_mw_com -- 400
+bazelisk run //examples/rust/mini-adas:adas_primary_com_linux_shm_direct_tcp -- 400
 ```
 
 ```sh
-bazelisk run //examples/rust/mini-adas:adas_secondary_mw_com -- 1
+bazelisk run //examples/rust/mini-adas:adas_secondary_com_linux_shm_direct_tcp -- 1
 ```
 
 ```sh
-bazelisk run //examples/rust/mini-adas:adas_secondary_mw_com -- 2
+bazelisk run //examples/rust/mini-adas:adas_secondary_com_linux_shm_direct_tcp -- 2
 ```
-
-## Different signalling layer
-
-The easiest way to switch the signalling layer is by changing the crate_features in the `BUILD.bazel`,
-make sure to switch it for every target you're using. Then you can just use the commands from above.
-
-Note that for mpsc-only signalling, there can be only a primary process without
-any secondaries or recorders, because mpsc does not support inter-process signalling.
 
 ## Running tracer
 

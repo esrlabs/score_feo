@@ -17,14 +17,11 @@ use feo_com::interface::ActivityInput;
 #[cfg(feature = "com_mw")]
 use crate::config::mw_com_runtime;
 
-#[cfg(not(feature = "com_mw"))]
-use score_log::fmt::ScoreDebug;
-
-#[cfg(not(feature = "com_mw"))]
-use core::fmt::Debug;
-
 #[cfg(feature = "com_mw")]
 use score_log::debug;
+
+#[cfg(not(feature = "com_mw"))]
+use feo_com::interface::FeoComData;
 
 #[cfg(feature = "com_mw")]
 use com_api::{
@@ -87,8 +84,10 @@ pub fn create_consumer<I: Interface + Send>(topic: &str) -> <I as Interface>::Co
 #[cfg(not(feature = "com_mw"))]
 pub fn activity_input<T>(topic: &str) -> Box<dyn ActivityInput<T>>
 where
-    T: Debug + ScoreDebug + 'static,
+    T: FeoComData + 'static,
 {
+    #[cfg(feature = "com_iox2")]
+    use feo_com::iox2::Iox2Input;
     #[cfg(feature = "com_linux_shm")]
     use feo_com::linux_shm::LinuxShmInput;
 
