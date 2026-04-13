@@ -18,9 +18,16 @@ use feo_time::Duration;
 const DEFAULT_FEO_CYCLE_TIME: Duration = Duration::from_millis(5);
 
 fn main() {
-    // Uncomment one or both of the following lines for benchmarking with logging/tracing
-    // feo_logger::init(feo_log::LevelFilter::Debug, true, true);
-    // feo_tracing::init(feo_tracing::LevelFilter::TRACE);
+    // Uncomment the following lines for benchmarking with logging
+    // use score_log::LevelFilter;
+    // use stdout_logger::StdoutLoggerBuilder;
+    // StdoutLoggerBuilder::new()
+    //     .context("cycle_bench")
+    //     .show_module(false)
+    //     .show_file(false)
+    //     .show_line(false)
+    //     .log_level(LevelFilter::Trace)
+    //     .set_as_default_logger();
 
     let params = Params::from_args();
     let app_config = ApplicationConfig::load();

@@ -46,10 +46,8 @@ rust_binary(
     srcs = [
         "src/bin/cycle_bench.rs",
     ],
-    rustc_flags = [
-        "-Clink-arg=-lstdc++",
-        "-Clink-arg=-lm",
-        "-Clink-arg=-lc",
+    data = [
+        "config/cycle_bench.json",
     ],
     visibility = ["//visibility:public"],
     deps = [
@@ -58,5 +56,6 @@ rust_binary(
         "//src/feo-time:libfeo_time_rust",
         "//src/feo-tracing:libfeo_tracing_rust",
         "@score_baselibs_rust//src/log/score_log",
+        "@score_baselibs_rust//src/log/stdout_logger",
     ],
 )
