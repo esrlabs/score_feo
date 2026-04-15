@@ -16,13 +16,11 @@ use crate::config::mw_com_runtime;
 #[cfg(feature = "com_mw")]
 use com_api::{Builder, InstanceSpecifier, Interface, LolaRuntimeImpl, Producer, Runtime};
 #[cfg(not(feature = "com_mw"))]
-use core::fmt::Debug;
-#[cfg(not(feature = "com_mw"))]
 use feo_com::interface::ActivityOutput;
+#[cfg(not(feature = "com_mw"))]
+use feo_com::interface::FeoComData;
 #[cfg(feature = "com_mw")]
 use score_log::debug;
-#[cfg(not(feature = "com_mw"))]
-use score_log::fmt::ScoreDebug;
 
 #[cfg(feature = "com_iox2")]
 use feo_com::iox2::Iox2Output;
@@ -62,7 +60,7 @@ pub fn create_producer<I: Interface>(
 #[cfg(not(feature = "com_mw"))]
 pub fn activity_output<T>(topic: &str) -> Box<dyn ActivityOutput<T>>
 where
-    T: Debug + ScoreDebug + 'static,
+    T: FeoComData + 'static,
 {
     #[cfg(feature = "com_iox2")]
     return Box::new(Iox2Output::new(topic));
