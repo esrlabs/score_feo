@@ -19,7 +19,6 @@
 //! or in the same process as the scheduler.
 
 pub(crate) mod mpsc;
-#[cfg(feature = "recording")]
-pub(crate) mod recorder;
+pub(crate) mod mw_com;
 pub(crate) mod scheduler;
 pub(crate) mod worker;

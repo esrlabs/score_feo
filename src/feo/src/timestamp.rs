@@ -14,11 +14,7 @@
 //! Timestamping module
 
 use feo_time::{Duration, Scaled};
-#[cfg(feature = "recording")]
-use postcard::experimental::max_size::MaxSize;
 use score_log::ScoreDebug;
-#[cfg(feature = "recording")]
-use serde::{Deserialize, Serialize};
 use std::sync::OnceLock;
 
 /// Maximal acceptable tolerance between when determining startup time info
@@ -122,7 +118,6 @@ pub fn sync_info() -> SyncInfo {
 }
 
 /// A timestamp: Duration since system startup
-#[cfg_attr(feature = "recording", derive(Serialize, Deserialize))]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, ScoreDebug)]
 pub struct Timestamp(pub feo_time::Duration);
 
@@ -133,17 +128,11 @@ pub fn timestamp() -> Timestamp {
     Timestamp(feo_duration)
 }
 
-#[cfg(feature = "recording")]
-impl MaxSize for Timestamp {
-    const POSTCARD_MAX_SIZE: usize = u64::POSTCARD_MAX_SIZE + u32::POSTCARD_MAX_SIZE;
-}
-
 /// Synchronization information
 ///
 /// For now, synchronization information is the startup time (UTC) on the primary agent as
 /// the duration since the EPOCH. That means, secondary agents synchronizing later based on
 /// that value might get affected by leap seconds occurring in between.
-#[cfg_attr(feature = "recording", derive(Serialize, Deserialize))]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, ScoreDebug)]
 pub struct SyncInfo {
     since_epoch: feo_time::Duration,
@@ -167,11 +156,6 @@ fn time_info_now() -> TimeInfo {
         tries_remaining -= 1;
         assert!(tries_remaining > 0, "failed to get synchronized time information");
     }
-}
-
-#[cfg(feature = "recording")]
-impl MaxSize for SyncInfo {
-    const POSTCARD_MAX_SIZE: usize = u64::POSTCARD_MAX_SIZE + u32::POSTCARD_MAX_SIZE;
 }
 
 impl From<SyncInfo> for u128 {
@@ -241,19 +225,5 @@ impl From<u128> for Timestamp {
 impl From<u64> for Timestamp {
     fn from(nanos: u64) -> Timestamp {
         Timestamp(feo_time::Duration::from_nanos(nanos))
-    }
-}
-
-#[cfg(test)]
-mod test {
-    #[cfg(feature = "recording")]
-    use super::{MaxSize, Timestamp};
-
-    #[cfg(feature = "recording")]
-    #[test]
-    fn test_max_size_for_timestamp() {
-        let time_stamp = Timestamp(feo_time::Duration::MAX);
-        let mut buf = [0u8; Timestamp::POSTCARD_MAX_SIZE];
-        postcard::to_slice(&time_stamp, &mut buf).expect("should fit");
     }
 }

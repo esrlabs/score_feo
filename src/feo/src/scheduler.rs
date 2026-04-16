@@ -45,14 +45,8 @@ pub(crate) struct Scheduler {
     activity_depends: HashMap<ActivityId, Vec<ActivityId>>,
     /// Map keeping track of activity states
     activity_states: HashMap<ActivityId, ActivityState>,
-
     /// Helper object connecting to activities in all connected agents
     connector: Box<dyn ConnectScheduler>,
-
-    /// Agent IDs of expected recorders
-    recorder_ids: Vec<AgentId>,
-    /// Map from recorder agent ID to ready state
-    recorders_ready: HashMap<AgentId, bool>,
     /// Flag to signal a shutdown request from an external source (e.g., Ctrl-C).
     shutdown_requested: Arc<AtomicBool>,
 }
@@ -66,7 +60,6 @@ impl Scheduler {
         startup_timeout: feo_time::Duration,
         activity_depends: HashMap<ActivityId, Vec<ActivityId>>,
         connector: Box<dyn ConnectScheduler>,
-        recorder_ids: Vec<AgentId>,
         shutdown_requested: Arc<AtomicBool>,
     ) -> Self {
         // Pre-allocate state map
@@ -83,7 +76,6 @@ impl Scheduler {
                 )
             })
             .collect();
-        let recorders_ready = recorder_ids.iter().map(|id| (*id, false)).collect();
 
         Self {
             agent_id,
@@ -93,13 +85,11 @@ impl Scheduler {
             activity_depends,
             connector,
             activity_states,
-            recorder_ids,
-            recorders_ready,
             shutdown_requested,
         }
     }
 
-    /// Synchronize all remote agents and recorders
+    /// Synchronize all remote agents
     pub(crate) fn sync_remotes(&mut self) -> Result<(), Error> {
         self.connector.sync_time()?;
         info!("Time synchronization of remote agents done");
@@ -120,7 +110,7 @@ impl Scheduler {
         // of activities to worker threads. (A worker with greater id value may start up in
         // one thread before an activity with smaller id value in another thread.)
         for activity_id in activity_ids {
-            Self::startup_activity(activity_id, &self.recorder_ids, &mut self.connector).unwrap();
+            Self::startup_activity(activity_id, &mut self.connector).unwrap();
         }
 
         // Wait until all activities have returned their ready signal, with a timeout.
@@ -147,9 +137,6 @@ impl Scheduler {
         loop {
             let task_chain_start = Instant::now();
 
-            // Record start of task chain on registered recorders
-            self.record_task_chain_start().unwrap();
-
             // Clear ready and triggered signals
             self.activity_states.values_mut().for_each(|v| {
                 v.ready = false;
@@ -169,15 +156,6 @@ impl Scheduler {
                     return;
                 }
             }
-
-            // Record end of task chain on registered recorders => recorders will flush
-            // => wait until all recorders have signalled to be ready
-            trace!("Flushing recorders");
-            let start_flush = Instant::now();
-            self.record_task_chain_end().unwrap();
-            self.wait_recorders_ready().unwrap();
-            let flush_duration = start_flush.elapsed();
-            trace!("Flushing recorders took {:?}", flush_duration);
 
             let task_chain_duration = task_chain_start.elapsed();
 
@@ -226,43 +204,31 @@ impl Scheduler {
                 .filter(|(id, _)| dependencies.contains(id))
                 .all(|(_, state)| state.ready);
             if is_ready {
-                Self::step_activity(act_id, &self.recorder_ids, &mut self.connector).expect("failed to step activity");
+                Self::step_activity(act_id, &mut self.connector).expect("failed to step activity");
                 self.activity_states.get_mut(act_id).unwrap().triggered = true;
             }
         }
     }
 
     /// Send startup signal to the given activity
-    fn startup_activity(
-        id: &ActivityId,
-        recorder_ids: &[AgentId],
-        connector: &mut Box<dyn ConnectScheduler>,
-    ) -> Result<(), Error> {
+    fn startup_activity(id: &ActivityId, connector: &mut Box<dyn ConnectScheduler>) -> Result<(), Error> {
         debug!("Triggering startup for activity {}", id);
         let signal = Signal::Startup((*id, timestamp()));
-        Self::trigger_activity(id, &signal, recorder_ids, connector)
+        Self::trigger_activity(id, &signal, connector)
     }
 
     /// Send step signal to the given activity
-    fn step_activity(
-        id: &ActivityId,
-        recorder_ids: &[AgentId],
-        connector: &mut Box<dyn ConnectScheduler>,
-    ) -> Result<(), Error> {
+    fn step_activity(id: &ActivityId, connector: &mut Box<dyn ConnectScheduler>) -> Result<(), Error> {
         debug!("Triggering step for activity {}", id);
         let signal = Signal::Step((*id, timestamp()));
-        Self::trigger_activity(id, &signal, recorder_ids, connector)
+        Self::trigger_activity(id, &signal, connector)
     }
 
     /// Send shutdown signal to the given activity
-    fn shutdown_activity(
-        id: &ActivityId,
-        recorder_ids: &[AgentId],
-        connector: &mut Box<dyn ConnectScheduler>,
-    ) -> Result<(), Error> {
+    fn shutdown_activity(id: &ActivityId, connector: &mut Box<dyn ConnectScheduler>) -> Result<(), Error> {
         debug!("Triggering shutdown for activity {}", id);
         let signal = Signal::Shutdown((*id, timestamp()));
-        Self::trigger_activity(id, &signal, recorder_ids, connector)
+        Self::trigger_activity(id, &signal, connector)
     }
 
     /// Manages the graceful shutdown of all started activities and agents.
@@ -289,7 +255,7 @@ impl Scheduler {
                 ScoreDebugBTreeSet(&started_activities)
             );
             for activity_id in &started_activities {
-                Self::shutdown_activity(activity_id, &self.recorder_ids, &mut self.connector)
+                Self::shutdown_activity(activity_id, &mut self.connector)
                     .unwrap_or_else(|e| error!("Failed to send Shutdown to activity {}: {:?}", activity_id, e));
             }
 
@@ -381,17 +347,13 @@ impl Scheduler {
         info!("Finished waiting for all acknowledgements. Shutdown complete.");
     }
 
-    /// Trigger activity by forwarding the signal to the activity and all recorders
+    /// Trigger activity by forwarding the signal to the activity
     fn trigger_activity(
         id: &ActivityId,
         signal: &Signal,
-        recorder_ids: &[AgentId],
         connector: &mut Box<dyn ConnectScheduler>,
     ) -> Result<(), Error> {
         connector.send_to_activity(*id, signal)?;
-        for id in recorder_ids {
-            connector.send_to_recorder(*id, signal)?;
-        }
         Ok(())
     }
 
@@ -401,12 +363,9 @@ impl Scheduler {
         let activity_id = loop {
             match self.connector.receive(self.receive_timeout)? {
                 None => {
-                    return Err(Error::Timeout(self.receive_timeout, "waiting for ready signal"));
+                    return Err(Error::Timeout(Some(self.receive_timeout), "waiting for ready signal"));
                 },
-                Some(signal @ Signal::Ready((id, _))) => {
-                    for recorder_id in self.recorder_ids.iter() {
-                        self.connector.send_to_recorder(*recorder_id, &signal)?;
-                    }
+                Some(Signal::Ready((id, _))) => {
                     break id;
                 },
                 Some(Signal::ActivityFailed((id, err))) => {
@@ -436,59 +395,6 @@ impl Scheduler {
     /// Check if all activities have signalled 'ready'
     fn all_ready(&self) -> bool {
         self.activity_states.values().all(|v| v.ready)
-    }
-
-    fn record_task_chain_start(&mut self) -> Result<(), Error> {
-        trace!("Recording task chain start");
-        let signal = &Signal::TaskChainStart(timestamp());
-        for id in self.recorder_ids.iter() {
-            self.connector.send_to_recorder(*id, signal)?;
-        }
-        Ok(())
-    }
-
-    fn record_task_chain_end(&mut self) -> Result<(), Error> {
-        trace!("Recording task chain end");
-        let signal = &Signal::TaskChainEnd(timestamp());
-        for id in self.recorder_ids.iter() {
-            self.connector.send_to_recorder(*id, signal)?;
-        }
-        Ok(())
-    }
-
-    fn wait_recorders_ready(&mut self) -> Result<(), Error> {
-        // If there are no recorders registered, return immediately
-        if self.recorder_ids.is_empty() {
-            return Ok(());
-        }
-
-        // Clear all ready flags
-        for value in self.recorders_ready.values_mut() {
-            *value = false;
-        }
-
-        // Loop until all recorders have signalled ready
-        while !self.recorders_ready.values().all(|v| *v) {
-            let received = self.connector.receive(self.receive_timeout)?;
-            match received {
-                None => continue,
-                Some(Signal::RecorderReady((id, _))) => {
-                    if let Some(value) = self.recorders_ready.get_mut(&id) {
-                        *value = true;
-                    } else {
-                        error!("Received unexpected id {} in recorder ready signal", id);
-                    }
-                },
-                Some(other) => {
-                    error!(
-                        "Received unexpected signal {} while waiting for recorder ready signal",
-                        other
-                    );
-                },
-            }
-        }
-
-        Ok(())
     }
 }
 

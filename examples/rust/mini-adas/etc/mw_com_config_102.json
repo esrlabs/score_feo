@@ -4,6 +4,25 @@
   },
   "serviceTypes": [
     {
+      "serviceTypeName": "/feo/com/FeoSignalInterface",
+      "version": {
+        "major": 1,
+        "minor": 0
+      },
+      "bindings": [
+        {
+          "binding": "SHM",
+          "serviceId": 6431,
+          "events": [
+            {
+              "eventName": "signal",
+              "eventId": 1000
+            }
+          ]
+        }
+      ]
+    },
+    {
       "serviceTypeName": "/feo/com/CameraInterface",
       "version": {
         "major": 1,
@@ -255,6 +274,263 @@
               "eventName": "steering",
               "numberOfSampleSlots": 10,
               "maxSubscribers": 3
+            }
+          ]
+        }
+      ]
+    },
+
+    {
+      "instanceSpecifier": "/feo/com/AgentAgt100ToScheduler",
+      "serviceTypeName": "/feo/com/FeoSignalInterface",
+      "version": {
+        "major": 1,
+        "minor": 0
+      },
+      "instances": [
+        {
+          "instanceId": 1000,
+          "allowedConsumer": {
+            "QM": [
+              0
+            ]
+          },
+          "allowedProvider": {
+            "QM": [
+              0
+            ]
+          },
+          "asil-level": "QM",
+          "binding": "SHM",
+          "events": [
+            {
+              "eventName": "signal",
+              "numberOfSampleSlots": 20,
+              "maxSubscribers": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "instanceSpecifier": "/feo/com/AgentAgt101ToScheduler",
+      "serviceTypeName": "/feo/com/FeoSignalInterface",
+      "version": {
+        "major": 1,
+        "minor": 0
+      },
+      "instances": [
+        {
+          "instanceId": 1001,
+          "allowedConsumer": {
+            "QM": [
+              0
+            ]
+          },
+          "allowedProvider": {
+            "QM": [
+              0
+            ]
+          },
+          "asil-level": "QM",
+          "binding": "SHM",
+          "events": [
+            {
+              "eventName": "signal",
+              "numberOfSampleSlots": 20,
+              "maxSubscribers": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "instanceSpecifier": "/feo/com/AgentAgt102ToScheduler",
+      "serviceTypeName": "/feo/com/FeoSignalInterface",
+      "version": {
+        "major": 1,
+        "minor": 0
+      },
+      "instances": [
+        {
+          "instanceId": 1002,
+          "allowedConsumer": {
+            "QM": [
+              0
+            ]
+          },
+          "allowedProvider": {
+            "QM": [
+              0
+            ]
+          },
+          "asil-level": "QM",
+          "binding": "SHM",
+          "events": [
+            {
+              "eventName": "signal",
+              "numberOfSampleSlots": 20,
+              "maxSubscribers": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "instanceSpecifier": "/feo/com/SchedulerToWorkerW40",
+      "serviceTypeName": "/feo/com/FeoSignalInterface",
+      "version": {
+        "major": 1,
+        "minor": 0
+      },
+      "instances": [
+        {
+          "instanceId": 2000,
+          "allowedConsumer": {
+            "QM": [
+              0
+            ]
+          },
+          "allowedProvider": {
+            "QM": [
+              0
+            ]
+          },
+          "asil-level": "QM",
+          "binding": "SHM",
+          "events": [
+            {
+              "eventName": "signal",
+              "numberOfSampleSlots": 10,
+              "maxSubscribers": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "instanceSpecifier": "/feo/com/SchedulerToWorkerW41",
+      "serviceTypeName": "/feo/com/FeoSignalInterface",
+      "version": {
+        "major": 1,
+        "minor": 0
+      },
+      "instances": [
+        {
+          "instanceId": 2001,
+          "allowedConsumer": {
+            "QM": [
+              0
+            ]
+          },
+          "allowedProvider": {
+            "QM": [
+              0
+            ]
+          },
+          "asil-level": "QM",
+          "binding": "SHM",
+          "events": [
+            {
+              "eventName": "signal",
+              "numberOfSampleSlots": 10,
+              "maxSubscribers": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "instanceSpecifier": "/feo/com/SchedulerToWorkerW42",
+      "serviceTypeName": "/feo/com/FeoSignalInterface",
+      "version": {
+        "major": 1,
+        "minor": 0
+      },
+      "instances": [
+        {
+          "instanceId": 2002,
+          "allowedConsumer": {
+            "QM": [
+              0
+            ]
+          },
+          "allowedProvider": {
+            "QM": [
+              0
+            ]
+          },
+          "asil-level": "QM",
+          "binding": "SHM",
+          "events": [
+            {
+              "eventName": "signal",
+              "numberOfSampleSlots": 10,
+              "maxSubscribers": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "instanceSpecifier": "/feo/com/SchedulerToWorkerW43",
+      "serviceTypeName": "/feo/com/FeoSignalInterface",
+      "version": {
+        "major": 1,
+        "minor": 0
+      },
+      "instances": [
+        {
+          "instanceId": 2003,
+          "allowedConsumer": {
+            "QM": [
+              0
+            ]
+          },
+          "allowedProvider": {
+            "QM": [
+              0
+            ]
+          },
+          "asil-level": "QM",
+          "binding": "SHM",
+          "events": [
+            {
+              "eventName": "signal",
+              "numberOfSampleSlots": 10,
+              "maxSubscribers": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "instanceSpecifier": "/feo/com/SchedulerToWorkerW44",
+      "serviceTypeName": "/feo/com/FeoSignalInterface",
+      "version": {
+        "major": 1,
+        "minor": 0
+      },
+      "instances": [
+        {
+          "instanceId": 2004,
+          "allowedConsumer": {
+            "QM": [
+              0
+            ]
+          },
+          "allowedProvider": {
+            "QM": [
+              0
+            ]
+          },
+          "asil-level": "QM",
+          "binding": "SHM",
+          "events": [
+            {
+              "eventName": "signal",
+              "numberOfSampleSlots": 10,
+              "maxSubscribers": 1
             }
           ]
         }

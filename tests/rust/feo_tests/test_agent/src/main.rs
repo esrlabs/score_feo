@@ -13,6 +13,7 @@
 use clap::{Parser, Subcommand, ValueEnum};
 use feo::error::Error;
 use score_log::LevelFilter;
+use score_log::ScoreDebug;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Once;
@@ -47,13 +48,14 @@ enum Role {
     Secondary { num: usize },
 }
 
-#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum, ScoreDebug)]
 pub enum Signalling {
     DirectMpsc,
     DirectTcp,
     DirectUnix,
     RelayedTcp,
     RelayedUnix,
+    MwCom,
 }
 
 #[derive(ValueEnum, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]

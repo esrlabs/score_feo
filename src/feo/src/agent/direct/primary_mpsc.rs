@@ -40,8 +40,6 @@ pub struct PrimaryConfig {
     pub cycle_time: Duration,
     /// Dependencies per activity
     pub activity_dependencies: HashMap<ActivityId, Vec<ActivityId>>,
-    /// IDs of all recorders for which the scheduler waits
-    pub recorder_ids: Vec<AgentId>,
     /// Worker assignments to be run in this agent
     pub worker_assignments: Vec<(WorkerId, Vec<ActivityIdAndBuilder>)>,
     /// Receive timeout of the scheduler's connector
@@ -64,7 +62,6 @@ impl Primary {
         let PrimaryConfig {
             cycle_time,
             activity_dependencies,
-            recorder_ids,
             timeout,
             startup_timeout,
             ..
@@ -113,7 +110,6 @@ impl Primary {
             startup_timeout,
             activity_dependencies,
             connector,
-            recorder_ids,
             shutdown_requested,
         );
 

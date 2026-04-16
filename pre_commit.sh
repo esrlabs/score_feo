@@ -13,12 +13,13 @@
 # SPDX-License-Identifier: Apache-2.0
 # *******************************************************************************
 
-set -e
+set -ex
 
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 
 buildifier -r $SCRIPT_DIR
 bazelisk mod tidy
+#bazelisk mod deps --lockfile_mode=update
 bazelisk run --lockfile_mode=error //:format.fix
 bazelisk run --lockfile_mode=error //:format.check_Rust_with_rustfmt
 bazelisk run --lockfile_mode=error //:copyright.check

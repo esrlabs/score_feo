@@ -13,15 +13,14 @@
 
 #[cfg(not(feature = "com_mw"))]
 use feo_com::interface::ActivityInput;
+#[cfg(not(feature = "com_mw"))]
+use feo_com::interface::FeoComData;
 
 #[cfg(feature = "com_mw")]
 use crate::config::mw_com_runtime;
 
 #[cfg(feature = "com_mw")]
 use score_log::debug;
-
-#[cfg(not(feature = "com_mw"))]
-use feo_com::interface::FeoComData;
 
 #[cfg(feature = "com_mw")]
 use com_api::{

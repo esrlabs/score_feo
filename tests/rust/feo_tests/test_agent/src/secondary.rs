@@ -15,6 +15,7 @@ use feo_time::Duration;
 use std::collections::HashSet;
 use std::path::PathBuf;
 
+use crate::config::mw_com_runtime;
 use crate::config::{BIND_ADDR, BIND_ADDR2, COM_BACKEND, SOCKET_PATH, SOCKET_PATH2};
 use feo::agent::com_init::initialize_com_secondary;
 use feo::agent::NodeAddress;
@@ -33,7 +34,7 @@ pub trait SecondaryLauncher {
 impl SecondaryLauncher for Signalling {
     fn launch_secondary(&self, scenario: Scenario, num: usize) -> Result<(), Error> {
         let agent_id: AgentId = (PRIMARY_AGENT_ID.id() + num as u64).into();
-        info!("Starting secondary agent {}", agent_id);
+        info!("Starting secondary agent {}({})...", agent_id, self);
 
         let server_name = "UNUSED".to_string(); // STUB
 
@@ -50,6 +51,8 @@ impl SecondaryLauncher for Signalling {
         // Initialize topics. Do not drop.
         let _topic_guards = initialize_com_secondary(COM_BACKEND, scenario.topic_dependencies(), &local_activities);
 
+        let runtime = mw_com_runtime();
+
         match self {
             Signalling::DirectMpsc => {
                 panic!("Secondaries are not supported with this feature flag")
@@ -64,7 +67,7 @@ impl SecondaryLauncher for Signalling {
                     endpoint: NodeAddress::Tcp(BIND_ADDR),
                 };
 
-                Secondary::new(config).run();
+                Secondary::new(config, runtime).run();
             },
             Signalling::DirectUnix => {
                 use feo::agent::direct::secondary::{Secondary, SecondaryConfig};
@@ -76,7 +79,7 @@ impl SecondaryLauncher for Signalling {
                     endpoint: NodeAddress::UnixSocket(PathBuf::from(SOCKET_PATH)),
                 };
 
-                Secondary::new(config).run();
+                Secondary::new(config, runtime).run();
             },
             Signalling::RelayedTcp => {
                 use feo::agent::relayed::secondary::{Secondary, SecondaryConfig};
@@ -103,6 +106,18 @@ impl SecondaryLauncher for Signalling {
                 };
 
                 Secondary::new(config).run();
+            },
+            Signalling::MwCom => {
+                use feo::agent::direct::secondary::{Secondary, SecondaryConfig};
+
+                let config = SecondaryConfig {
+                    id: agent_id,
+                    worker_assignments: scenario.agent_assignments(server_name).remove(&agent_id).unwrap(),
+                    timeout: Duration::from_secs(1),
+                    endpoint: NodeAddress::MwCom,
+                };
+
+                Secondary::new(config, runtime).run();
             },
         }
 

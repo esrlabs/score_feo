@@ -57,5 +57,6 @@ rust_binary(
         "//src/feo-tracing:libfeo_tracing_rust",
         "@score_baselibs_rust//src/log/score_log",
         "@score_baselibs_rust//src/log/stdout_logger",
+        "@score_communication//score/mw/com/impl/rust/com-api/com-api",
     ],
 )

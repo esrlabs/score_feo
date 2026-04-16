@@ -1,7 +1,6 @@
 {
   "signalling": "DirectUnix",
   "primary_agent": 1000,
-  "recorders": [],
   "agent_assignments": {
     "1000": [500, 502],
     "1001": [501]

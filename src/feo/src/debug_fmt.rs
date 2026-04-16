@@ -47,3 +47,19 @@ impl<'a, T: core::fmt::Debug, const MAX_LENGTH: usize> ScoreDebug for ScoreDebug
         f.write_str(core::str::from_utf8(debug_str).expect("not a valid UTF-8 string"), spec)
     }
 }
+
+#[derive(Debug)]
+pub struct ScoreDebugComApiError(pub com_api::Error);
+
+impl ScoreDebug for ScoreDebugComApiError {
+    fn fmt(&self, f: &mut dyn ScoreWrite, spec: &FormatSpec) -> Result<(), score_log::fmt::Error> {
+        match self.0 {
+            com_api::Error::ServiceError(_) => f.write_str("service error", spec),
+            com_api::Error::ProducerError(_) => f.write_str("producer error", spec),
+            com_api::Error::ConsumerError(_) => f.write_str("consumer error", spec),
+            com_api::Error::EventError(_) => f.write_str("event error", spec),
+            com_api::Error::AllocateError(_) => f.write_str("allocate error", spec),
+            com_api::Error::ReceiveError(_) => f.write_str("receive error", spec),
+        }
+    }
+}

@@ -29,7 +29,6 @@ use std::collections::{HashMap, HashSet};
 ///   (i.e., primary and secondary agents)
 /// * agent_assignments: Map from agent ids to lists of workers with their activities
 /// * max_additional_readers: The maximum number of optional additional readers on a topic
-///   (usually recorder processes)
 pub fn initialize_com_primary(
     backend: ComBackend,
     agent_id: AgentId,
@@ -91,22 +90,6 @@ pub fn initialize_com_secondary(
     for spec in topic_specs {
         let is_local_write = is_write(local_activities, &spec);
         let init_params = ComBackendTopicSecondaryInitialization::new(spec.topic, backend, is_local_write);
-        let handle = (spec.init_secondary_fn)(&init_params);
-        handles.push(handle);
-    }
-    handles
-}
-
-/// Initialize feo-com for a secondary agent using the given configuration parameters
-///
-/// # Arguments
-///
-/// * backend: the com backend to use
-/// * topics_specs: Specifications of all topics possibly recorded
-pub fn initialize_com_recorder(backend: ComBackend, topic_specs: Vec<TopicSpecification>) -> Vec<TopicHandle> {
-    let mut handles = Vec::with_capacity(topic_specs.len());
-    for spec in topic_specs {
-        let init_params = ComBackendTopicSecondaryInitialization::new(spec.topic, backend, false);
         let handle = (spec.init_secondary_fn)(&init_params);
         handles.push(handle);
     }

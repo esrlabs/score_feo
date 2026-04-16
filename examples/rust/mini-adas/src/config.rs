@@ -15,7 +15,6 @@ use crate::activities::components::{
     BrakeController, Camera, EmergencyBraking, EnvironmentRenderer, LaneAssist, NeuralNet, Radar, SteeringController,
     TrajectoryVisualizer,
 };
-#[cfg(feature = "com_mw")]
 use com_api::{Builder, LolaRuntimeBuilderImpl, LolaRuntimeImpl, RuntimeBuilder};
 use core::net::{IpAddr, Ipv4Addr, SocketAddr};
 use feo::activity::{ActivityBuilder, ActivityIdAndBuilder};
@@ -26,7 +25,6 @@ use feo_com::interface::ComBackend;
 use mini_adas_gen::{BrakeInstruction, CameraImage, RadarScan, Scene, Steering};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-#[cfg(feature = "com_mw")]
 use std::sync::OnceLock;
 
 pub type WorkerAssignment = (WorkerId, Vec<(ActivityId, Box<dyn ActivityBuilder>)>);
@@ -48,13 +46,8 @@ pub const TOPIC_CONTROL_STEERING: &str = "/feo/com/MiniAdasSteeringController";
 pub const TOPIC_CAMERA_FRONT: &str = "/feo/com/MiniAdasCamera";
 pub const TOPIC_RADAR_FRONT: &str = "/feo/com/MiniAdasRadar";
 
-/// Allow up to two recorder processes (that potentially need to subscribe to every topic)
-pub const MAX_ADDITIONAL_SUBSCRIBERS: usize = 2;
-
-#[cfg(feature = "com_mw")]
 static MW_COM_RUNTIME: OnceLock<LolaRuntimeImpl> = OnceLock::new();
 
-#[cfg(feature = "com_mw")]
 pub fn init_mw_com_runtime(agent_id: AgentId) -> &'static LolaRuntimeImpl {
     MW_COM_RUNTIME.get_or_init(|| {
         let mut lola_runtime_builder = LolaRuntimeBuilderImpl::new();
@@ -66,7 +59,6 @@ pub fn init_mw_com_runtime(agent_id: AgentId) -> &'static LolaRuntimeImpl {
     })
 }
 
-#[cfg(feature = "com_mw")]
 pub fn mw_com_runtime() -> &'static LolaRuntimeImpl {
     MW_COM_RUNTIME.get().unwrap()
 }
@@ -133,7 +125,7 @@ pub fn agent_assignments() -> HashMap<AgentId, Vec<(WorkerId, Vec<ActivityIdAndB
         feature = "signalling_direct_tcp",
         feature = "signalling_direct_unix",
         feature = "signalling_relayed_tcp",
-        feature = "signalling_relayed_unix"
+        feature = "signalling_relayed_unix",
     ))]
     let assignment = [
         (100.into(), vec![w40, w41]),
@@ -142,6 +134,16 @@ pub fn agent_assignments() -> HashMap<AgentId, Vec<(WorkerId, Vec<ActivityIdAndB
     ]
     .into_iter()
     .collect();
+
+    #[cfg(feature = "signalling_direct_mw_com")]
+    let assignment = [
+        (100.into(), vec![]),
+        (101.into(), vec![w40, w41, w42]),
+        (102.into(), vec![w43, w44]),
+    ]
+    .into_iter()
+    .collect();
+
     #[cfg(feature = "signalling_direct_mpsc")]
     let assignment = [(100.into(), vec![w40, w41, w42, w43, w44])].into_iter().collect();
 

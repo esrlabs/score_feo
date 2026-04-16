@@ -11,8 +11,8 @@
 // SPDX-License-Identifier: Apache-2.0
 // *******************************************************************************
 
+use crate::config::mw_com_runtime;
 use crate::config::COM_BACKEND;
-use crate::config::MAX_ADDITIONAL_SUBSCRIBERS;
 use crate::config::PRIMARY_AGENT_ID;
 use crate::config::{BIND_ADDR, BIND_ADDR2, DEFAULT_FEO_CYCLE_TIME, SOCKET_PATH, SOCKET_PATH2};
 use crate::scenario::ScenarioConfig;
@@ -30,7 +30,7 @@ pub trait PrimaryLauncher {
 
 impl PrimaryLauncher for Signalling {
     fn launch_primary(&self, scenario: Scenario, server_name: String) -> Result<(), Error> {
-        info!("Starting primary agent {}", PRIMARY_AGENT_ID);
+        info!("Starting primary agent {} ({})...", PRIMARY_AGENT_ID, self);
 
         // Initialize topics. Do not drop.
         let _topic_guards = initialize_com_primary(
@@ -38,8 +38,23 @@ impl PrimaryLauncher for Signalling {
             PRIMARY_AGENT_ID,
             scenario.topic_dependencies(),
             &scenario.agent_assignments_ids(),
-            MAX_ADDITIONAL_SUBSCRIBERS,
+            0,
         );
+
+        let all_agent_assignments = scenario
+            .agent_assignments(server_name.clone())
+            .iter()
+            .map(|(a, v)| {
+                (
+                    *a,
+                    v.iter()
+                        .map(|(w, v)| (*w, v.iter().map(|(a, _)| *a).collect::<Vec<_>>()))
+                        .collect::<Vec<_>>(),
+                )
+            })
+            .collect::<Vec<_>>();
+
+        let runtime = mw_com_runtime();
 
         match self {
             Signalling::DirectMpsc => {
@@ -48,7 +63,6 @@ impl PrimaryLauncher for Signalling {
                 let config = PrimaryConfig {
                     cycle_time: DEFAULT_FEO_CYCLE_TIME,
                     activity_dependencies: scenario.activity_dependencies(),
-                    recorder_ids: vec![],
                     id: PRIMARY_AGENT_ID,
                     worker_assignments: scenario
                         .agent_assignments(server_name)
@@ -67,7 +81,6 @@ impl PrimaryLauncher for Signalling {
                 let config = PrimaryConfig {
                     cycle_time: DEFAULT_FEO_CYCLE_TIME,
                     activity_dependencies: scenario.activity_dependencies(),
-                    recorder_ids: vec![],
                     id: PRIMARY_AGENT_ID,
                     worker_assignments: scenario
                         .agent_assignments(server_name)
@@ -78,9 +91,10 @@ impl PrimaryLauncher for Signalling {
                     startup_timeout: Duration::from_secs(10),
                     endpoint: NodeAddress::Tcp(BIND_ADDR),
                     activity_agent_map: scenario.activity_agent_map(),
+                    all_agent_assignments,
                 };
 
-                Primary::new(config).unwrap().run().unwrap();
+                Primary::new(config, runtime).unwrap().run().unwrap();
             },
             Signalling::DirectUnix => {
                 use feo::agent::direct::primary::{Primary, PrimaryConfig};
@@ -89,7 +103,6 @@ impl PrimaryLauncher for Signalling {
                 let config = PrimaryConfig {
                     cycle_time: DEFAULT_FEO_CYCLE_TIME,
                     activity_dependencies: scenario.activity_dependencies(),
-                    recorder_ids: vec![],
                     id: PRIMARY_AGENT_ID,
                     worker_assignments: scenario
                         .agent_assignments(server_name)
@@ -100,9 +113,10 @@ impl PrimaryLauncher for Signalling {
                     startup_timeout: Duration::from_secs(10),
                     endpoint: NodeAddress::UnixSocket(PathBuf::from(SOCKET_PATH)),
                     activity_agent_map: scenario.activity_agent_map(),
+                    all_agent_assignments,
                 };
 
-                Primary::new(config).unwrap().run().unwrap();
+                Primary::new(config, runtime).unwrap().run().unwrap();
             },
             Signalling::RelayedTcp => {
                 use feo::agent::NodeAddress;
@@ -112,7 +126,6 @@ impl PrimaryLauncher for Signalling {
                 let config = PrimaryConfig {
                     cycle_time: DEFAULT_FEO_CYCLE_TIME,
                     activity_dependencies: scenario.activity_dependencies(),
-                    recorder_ids: vec![],
                     worker_assignments: scenario
                         .agent_assignments(server_name)
                         .remove(&PRIMARY_AGENT_ID)
@@ -127,7 +140,7 @@ impl PrimaryLauncher for Signalling {
                     activity_worker_map: scenario.activity_worker_map(),
                 };
 
-                Primary::new(config).unwrap().run().unwrap();
+                Primary::new(config, runtime).unwrap().run().unwrap();
             },
             Signalling::RelayedUnix => {
                 use feo::agent::NodeAddress;
@@ -137,7 +150,6 @@ impl PrimaryLauncher for Signalling {
                 let config = PrimaryConfig {
                     cycle_time: DEFAULT_FEO_CYCLE_TIME,
                     activity_dependencies: scenario.activity_dependencies(),
-                    recorder_ids: vec![],
                     worker_assignments: scenario
                         .agent_assignments(server_name)
                         .remove(&PRIMARY_AGENT_ID)
@@ -152,7 +164,29 @@ impl PrimaryLauncher for Signalling {
                     activity_worker_map: scenario.activity_worker_map(),
                 };
 
-                Primary::new(config).unwrap().run().unwrap();
+                Primary::new(config, runtime).unwrap().run().unwrap();
+            },
+            Signalling::MwCom => {
+                use feo::agent::direct::primary::{Primary, PrimaryConfig};
+                use feo::agent::NodeAddress;
+
+                let config = PrimaryConfig {
+                    cycle_time: DEFAULT_FEO_CYCLE_TIME,
+                    activity_dependencies: scenario.activity_dependencies(),
+                    id: PRIMARY_AGENT_ID,
+                    worker_assignments: scenario
+                        .agent_assignments(server_name)
+                        .remove(&PRIMARY_AGENT_ID)
+                        .unwrap(),
+                    timeout: Duration::from_secs(10),
+                    connection_timeout: Duration::from_secs(10),
+                    startup_timeout: Duration::from_secs(10),
+                    endpoint: NodeAddress::MwCom,
+                    activity_agent_map: scenario.activity_agent_map(),
+                    all_agent_assignments,
+                };
+
+                Primary::new(config, runtime).unwrap().run().unwrap();
             },
         }
         Ok(())

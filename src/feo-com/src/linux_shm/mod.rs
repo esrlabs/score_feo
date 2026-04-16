@@ -120,9 +120,13 @@ impl ComRuntime {
     fn service_main(mut requests_to_serve: usize) {
         let _ = std::fs::remove_file(SOCKET);
         let listener = UnixListener::bind(SOCKET).unwrap_or_else(|e| panic!("can't bind socket at {SOCKET}: {e}"));
+        if requests_to_serve < 1 {
+            return;
+        }
         debug!("Listening for {} topic mapping requests...", requests_to_serve);
         loop {
             if requests_to_serve < 1 {
+                debug!("COM primary service shutdown (all requests have been served)");
                 break;
             }
             match listener.accept() {
@@ -137,7 +141,6 @@ impl ComRuntime {
                 },
             }
         }
-        debug!("COM primary service shutdown");
     }
 
     // Serves one connection from secondary
@@ -230,6 +233,7 @@ impl ComRuntime {
     }
 
     fn init_topic_secondary<T: Debug + 'static>(&mut self, topic: Topic, mapping_mode: MappingMode) {
+        debug!("Initializing topic {} on secondary (LinuxShm)...", topic);
         let (size, mapping_id) = Self::request_primary(topic);
         assert_eq!(size_of::<T>(), size);
         let native_mapping = shm_open(
@@ -256,8 +260,8 @@ impl ComRuntime {
 
     // Make a request to primary
     fn request_primary(topic: Topic) -> (usize, String) {
-        let mut stream =
-            UnixStream::connect(SOCKET).unwrap_or_else(|e| panic!("can't connect to socket {SOCKET}: {e}"));
+        let mut stream = UnixStream::connect(SOCKET)
+            .unwrap_or_else(|e| panic!("can't connect to socket {SOCKET} for topic {topic}: {e}"));
         stream.write_all(topic.as_bytes()).expect("socket write failed");
         stream.shutdown(Shutdown::Write).expect("socket shutdown failed");
         let response = read_to_string(&mut stream).expect("socket read failed");

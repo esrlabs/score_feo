@@ -27,6 +27,9 @@ rust_binary(
     crate_features = [
         "com_linux_shm",
     ],
+    data = [
+        "etc/mw_com_config.json",
+    ],
     rustc_flags = [
         "-Clink-arg=-lstdc++",
         "-Clink-arg=-lm",

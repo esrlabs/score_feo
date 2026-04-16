@@ -1,5 +1,5 @@
 /********************************************************************************
- * Copyright (c) 2025 Contributors to the Eclipse Foundation
+ * Copyright (c) 2026 Contributors to the Eclipse Foundation
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information regarding copyright ownership.
@@ -11,10 +11,11 @@
  * SPDX-License-Identifier: Apache-2.0
  ********************************************************************************/
 
-use std::env;
-use std::path::PathBuf;
+#include "src/feo/cpp-src/mw_com_gen.h"
+#include "score/mw/com/impl/rust/com-api/com-api-ffi-lola/registry_bridge_macro.h"
 
-// Relative path to the feo repository root directory
-static PATH_TO_REPO_ROOT: &str = "../../../";
+BEGIN_EXPORT_MW_COM_INTERFACE(FeoSignalInterface, ::score::feo::com::FeoSignalProxy, ::score::feo::com::FeoSignalSkeleton)
+EXPORT_MW_COM_EVENT(::score::feo::com::MwComSignal, signal)
+END_EXPORT_MW_COM_INTERFACE()
 
-fn main() {}
+EXPORT_MW_COM_TYPE(MwComSignal, ::score::feo::com::MwComSignal)

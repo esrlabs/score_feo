@@ -19,8 +19,6 @@
 use crate::ids::{ActivityId, AgentId, ChannelId, RelayId, WorkerId};
 use crate::signalling::common::socket::client::{TcpClient, UnixClient};
 use crate::signalling::common::socket::server::{TcpServer, UnixServer};
-#[cfg(feature = "recording")]
-use crate::signalling::relayed::connectors::recorder;
 use crate::signalling::relayed::connectors::relays::{
     PrimaryReceiveRelay, PrimarySendRelay, SecondaryReceiveRelay, SecondarySendRelay,
 };
@@ -36,13 +34,9 @@ use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
 // The types to be used by client code
-#[cfg(feature = "recording")]
-pub(crate) type RecorderConnectorTcp = recorder::RecorderConnector<InterChannelTcp>;
 pub(crate) type SchedulerConnectorTcp = scheduler::SchedulerConnector<InterChannelTcp, IntraChannel>;
 pub(crate) type SecondaryConnectorTcp = secondary::SecondaryConnector<InterChannelTcp, IntraChannel>;
 pub(crate) type WorkerConnector = crate::signalling::common::mpsc::WorkerConnector;
-#[cfg(feature = "recording")]
-pub(crate) type RecorderConnectorUnix = recorder::RecorderConnector<InterChannelUnix>;
 pub(crate) type SchedulerConnectorUnix = scheduler::SchedulerConnector<InterChannelUnix, IntraChannel>;
 pub(crate) type SecondaryConnectorUnix = secondary::SecondaryConnector<InterChannelUnix, IntraChannel>;
 
@@ -135,21 +129,6 @@ impl SocketChannel for InterChannelUnix {
     }
 }
 
-#[cfg(feature = "recording")]
-impl<Inter: SocketChannel> recorder::RecorderConnector<Inter> {
-    pub fn new(
-        agent_id: AgentId,
-        bind_address_senders: Inter::Address,
-        bind_address_receivers: Inter::Address,
-        timeout: Duration,
-    ) -> Self {
-        let inter_sender = Inter::new_sender(bind_address_senders, ChannelId::Agent(agent_id));
-        let inter_receiver = Inter::new_receiver(bind_address_receivers, ChannelId::Agent(agent_id));
-
-        Self::create(inter_sender, inter_receiver, timeout)
-    }
-}
-
 impl<Inter: SocketChannel> scheduler::SchedulerConnector<Inter, IntraChannel> {
     /// Create scheduler connector for mixed signalling using sockets and mpsc channels
     ///
@@ -161,7 +140,6 @@ impl<Inter: SocketChannel> scheduler::SchedulerConnector<Inter, IntraChannel> {
     /// * `timeout`: The connection and reception timeout
     /// * `worker_agent_map`: A map of all worker-ids to the ids of the agents they reside on
     /// * `activity_worker_map`: A map of all activity-ids to the ids of the workers they are assigned to
-    /// * `recorders`: A list of the expected recorders' agent id
     pub(crate) fn new(
         agent_id: AgentId,
         bind_address_senders: Inter::Address,
@@ -169,10 +147,7 @@ impl<Inter: SocketChannel> scheduler::SchedulerConnector<Inter, IntraChannel> {
         timeout: Duration,
         worker_agent_map: HashMap<WorkerId, AgentId>,
         activity_worker_map: HashMap<ActivityId, WorkerId>,
-        recorders: Vec<AgentId>,
     ) -> Self {
-        let recorders: HashSet<AgentId> = recorders.into_iter().collect();
-
         // Determine local worker IDs
         let local_workers: HashSet<WorkerId> = worker_agent_map
             .iter()
@@ -185,7 +160,6 @@ impl<Inter: SocketChannel> scheduler::SchedulerConnector<Inter, IntraChannel> {
             .values()
             .copied()
             .filter(|id| id != &agent_id)
-            .chain(recorders.iter().copied())
             .collect();
 
         // Determine channels to local workers plus one to relay

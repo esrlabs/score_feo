@@ -13,17 +13,12 @@
 
 //! FEO Error implementation
 
+use crate::debug_fmt::ScoreDebugComApiError;
 use crate::ids::{ActivityId, ChannelId, WorkerId};
 use crate::signalling::common::signals::Signal;
 use feo_time::Duration;
 use feo_tracing::ScoreDebugIoError;
-#[cfg(feature = "recording")]
-use postcard::experimental::max_size::MaxSize;
 use score_log::ScoreDebug;
-#[cfg(feature = "recording")]
-use serde::Deserialize;
-#[cfg(feature = "recording")]
-use serde::Serialize;
 
 /// FEO Error type
 #[non_exhaustive]
@@ -35,14 +30,20 @@ pub enum Error {
     ChannelClosed,
     ChannelNotFound(ChannelId),
     Io((ScoreDebugIoError, &'static str)),
-    Timeout(Duration, &'static str),
+    Timeout(Option<Duration>, &'static str),
     UnexpectedProtocolSignal,
     UnexpectedSignal(Signal),
     WorkerNotFound(WorkerId),
+    MwComError(ScoreDebugComApiError),
+}
+
+impl From<com_api::Error> for Error {
+    fn from(e: com_api::Error) -> Self {
+        Self::MwComError(ScoreDebugComApiError(e))
+    }
 }
 
 /// Defines the types of failures an Activity can report.
-#[cfg_attr(feature = "recording", derive(Serialize, Deserialize, MaxSize))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, ScoreDebug)]
 pub enum ActivityError {
     /// A failure during the `startup()` method.
@@ -67,11 +68,16 @@ impl core::fmt::Display for Error {
             Error::ChannelNotFound(id) => write!(f, "failed to find channel with ID {id}"),
             Error::Io((e, description)) => write!(f, "{description}: io error: {e}"),
             Error::Timeout(duration, action) => {
-                write!(f, "timeout reached ({:0.3}s) while {action}", duration.as_secs_f64())
+                if let Some(duration) = duration {
+                    write!(f, "timeout reached ({:0.3}s) while {action}", duration.as_secs_f64())
+                } else {
+                    write!(f, "timeout reached while {action}")
+                }
             },
             Error::UnexpectedProtocolSignal => write!(f, "received unexpected protocol signal"),
             Error::UnexpectedSignal(signal) => write!(f, "received unexpected signal {signal}"),
             Error::WorkerNotFound(id) => write!(f, "failed to find worker with ID {id}"),
+            Error::MwComError(e) => write!(f, "mw com error: {e:?}"),
         }
     }
 }

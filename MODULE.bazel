@@ -27,13 +27,7 @@ git_override(
     remote = "https://github.com/eclipse-score/tooling.git",
 )
 
-bazel_dep(name = "score_crates", version = "0.0.6")
-git_override(
-    module_name = "score_crates",
-    commit = "e629bc327b776f4b7a9301aea75957f3a0b065bc",
-    remote = "https://github.com/eclipse-score/score-crates.git",
-)
-
+bazel_dep(name = "score_crates", version = "0.0.9")
 bazel_dep(name = "score_baselibs_rust", version = "0.1.0")
 git_override(
     module_name = "score_baselibs_rust",
@@ -43,18 +37,18 @@ git_override(
 
 # SCORE communication integration
 bazel_dep(name = "score_communication", version = "0.1.2")
-#bazel_dep(name = "rules_doxygen", version = "2.6.1", dev_dependency = True)
-
 git_override(
     module_name = "score_communication",
-    commit = "ced8c0e09d136c5de430268fd2270878b6f297ee",
+    commit = "8024d81376e8f3271ebc7624c43fb075d408895f",
     remote = "https://github.com/eclipse-score/communication.git",
 )
 
 bazel_dep(name = "score_baselibs", version = "0.2.4")
+
+# TODO: Remove once new baselib release is available https://github.com/eclipse-score/baselibs/issues/138
 git_override(
     module_name = "score_baselibs",
-    commit = "052c2f271be4239f97182b164f4903b8c88d6c72",
+    commit = "bd9a138245b7c8bb47bbb9745a3fabc978e3a1b1",
     remote = "https://github.com/eclipse-score/baselibs.git",
 )
 
@@ -80,7 +74,7 @@ archive_override(
     urls = ["https://github.com/nelhage/rules_boost/archive/refs/heads/master.tar.gz"],
 )
 
-bazel_dep(name = "boost.program_options", version = "1.87.0")
+bazel_dep(name = "boost.program_options", version = "1.83.0.bcr.4")
 
 # Rust rules for Bazel
 bazel_dep(name = "rules_rust", version = "0.68.1-score")

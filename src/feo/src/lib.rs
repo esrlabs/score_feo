@@ -52,3 +52,6 @@ pub mod signalling;
 mod timestamp;
 pub mod topicspec;
 pub mod worker;
+
+pub(crate) static TOKIO_RT: std::sync::LazyLock<tokio::runtime::Runtime> =
+    std::sync::LazyLock::new(|| tokio::runtime::Runtime::new().unwrap());

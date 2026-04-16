@@ -33,6 +33,7 @@ pub mod relayed;
 pub enum NodeAddress {
     Tcp(SocketAddr),
     UnixSocket(PathBuf),
+    MwCom,
 }
 
 fn register_sigterm_handler(shutdown: Arc<AtomicBool>) {
